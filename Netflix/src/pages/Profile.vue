@@ -41,16 +41,20 @@ onUnmounted(() => unsubAuth())
 </script>
 
 <style scoped>
-.page { min-height: 100vh; background: #0d1f13; }
-.main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+.page { min-height: 100vh; }
+.main { max-width: 900px; margin: 0 auto; padding: 2rem 1.75rem 4rem; }
 
-.auth-required { text-align: center; padding: 4rem; }
-.auth-required p { color: #a5d6a7; margin-bottom: 1rem; font-size: 1.1rem; }
+.auth-required {
+  text-align: center; padding: 5rem 2rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+}
+.auth-required p { color: rgba(238,248,240,0.4); font-size: 1.05rem; }
 
 .btn-accent {
-  background: #4caf50; color: #fff;
-  padding: 0.55rem 1.5rem; border-radius: 6px;
-  font-weight: 600; font-size: 0.95rem;
+  background: linear-gradient(135deg, #3ecf5e 0%, #2aaf4a 100%);
+  color: #fff; padding: 0.65rem 1.75rem; border-radius: 11px;
+  font-weight: 800; font-size: 0.95rem;
+  box-shadow: 0 3px 14px rgba(62,207,94,0.3); transition: all 0.2s;
 }
-.btn-accent:hover { background: #43a047; }
+.btn-accent:hover { transform: translateY(-1px); box-shadow: 0 5px 20px rgba(62,207,94,0.45); }
 </style>

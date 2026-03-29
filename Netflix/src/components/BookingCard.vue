@@ -1,21 +1,38 @@
 <template>
-  <div class="booking-card">
-    <div class="booking-header">
-      <span class="animal-name">{{ booking.animalName }}</span>
-      <span :class="['status-badge', booking.status]">{{ statusLabel }}</span>
+  <div class="bcard">
+    <div class="bcard-top">
+      <div class="bcard-animal">
+        <div class="animal-icon">🐾</div>
+        <div>
+          <div class="animal-name">{{ booking.animalName }}</div>
+          <div class="animal-type">{{ typeLabel }}</div>
+        </div>
+      </div>
+      <span :class="['status-pill', booking.status]">
+        <span class="status-dot"></span>{{ statusLabel }}
+      </span>
     </div>
-    <div class="booking-details">
-      <span class="detail">🗓️ {{ booking.date }}</span>
-      <span class="detail">⏰ {{ booking.time }}</span>
-      <span class="detail">{{ typeLabel }}</span>
+
+    <div class="bcard-details">
+      <div class="detail-item">
+        <span class="detail-icon">📅</span>
+        <span>{{ booking.date }}</span>
+      </div>
+      <div class="detail-item">
+        <span class="detail-icon">⏰</span>
+        <span>{{ booking.time }}</span>
+      </div>
+      <div class="detail-item muted">
+        <span class="detail-icon">🕒</span>
+        <span>{{ formatDate(booking.createdAt) }}</span>
+      </div>
     </div>
-    <div class="booking-meta">
-      <span class="created-at">Создано: {{ formatDate(booking.createdAt) }}</span>
-      <button
-        v-if="booking.status === 'pending'"
-        class="btn-cancel"
-        @click="$emit('cancel')"
-      >Отменить</button>
+
+    <div v-if="booking.status === 'pending'" class="bcard-actions">
+      <button class="btn-cancel" @click="$emit('cancel')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Отменить
+      </button>
     </div>
   </div>
 </template>
@@ -41,59 +58,87 @@ function formatDate(ts) {
 </script>
 
 <style scoped>
-.booking-card {
-  background: #1a3d2b;
-  border: 1px solid #2d7a4f;
-  border-radius: 10px;
+.bcard {
+  background: rgba(17,42,28,0.65);
+  backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(62,207,94,0.12);
+  border-radius: 16px;
   padding: 1.25rem;
+  transition: all 0.22s;
+}
+.bcard:hover {
+  border-color: rgba(62,207,94,0.28);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+}
+
+.bcard-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 1rem;
-  transition: border-color 0.2s;
 }
-.booking-card:hover { border-color: #4caf50; }
 
-.booking-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
+.bcard-animal {
+  display: flex; align-items: center; gap: 0.75rem;
 }
-.animal-name { font-size: 1.05rem; font-weight: 700; color: #fff; }
-
-.status-badge {
-  padding: 0.25rem 0.75rem;
+.animal-icon {
+  width: 42px; height: 42px;
+  background: rgba(62,207,94,0.1);
+  border: 1.5px solid rgba(62,207,94,0.2);
   border-radius: 12px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
 }
-.status-badge.pending { background: rgba(255,167,38,0.2); color: #ffa726; border: 1px solid #ffa726; }
-.status-badge.confirmed { background: rgba(76,175,80,0.2); color: #4caf50; border: 1px solid #4caf50; }
-.status-badge.cancelled { background: rgba(239,83,80,0.2); color: #ef5350; border: 1px solid #ef5350; }
-.status-badge.completed { background: rgba(66,165,245,0.2); color: #42a5f5; border: 1px solid #42a5f5; }
+.animal-name { font-size: 1rem; font-weight: 800; color: #eef8f0; }
+.animal-type { font-size: 0.8rem; color: rgba(238,248,240,0.45); margin-top: 0.1rem; }
 
-.booking-details {
-  display: flex;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.75rem;
-  color: #a5d6a7;
-  font-size: 0.9rem;
+.status-pill {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.detail { display: flex; align-items: center; gap: 0.3rem; }
-
-.booking-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.status-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
 }
-.created-at { color: #6a9a72; font-size: 0.82rem; }
+.status-pill.pending { background: rgba(245,166,35,0.15); border: 1px solid rgba(245,166,35,0.35); color: #fbbf24; }
+.status-pill.confirmed { background: rgba(62,207,94,0.15); border: 1px solid rgba(62,207,94,0.35); color: #3ecf5e; }
+.status-pill.cancelled { background: rgba(240,82,82,0.12); border: 1px solid rgba(240,82,82,0.3); color: #f87171; }
+.status-pill.completed { background: rgba(84,180,248,0.12); border: 1px solid rgba(84,180,248,0.3); color: #7dd3fc; }
+.status-pill.pending .status-dot { animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+.bcard-details {
+  display: flex; gap: 1.25rem; flex-wrap: wrap;
+  padding: 0.85rem;
+  background: rgba(0,0,0,0.15);
+  border-radius: 10px;
+  margin-bottom: 0.85rem;
+}
+.detail-item {
+  display: flex; align-items: center; gap: 0.4rem;
+  font-size: 0.87rem; font-weight: 700;
+  color: rgba(238,248,240,0.7);
+}
+.detail-item.muted { color: rgba(238,248,240,0.35); }
+.detail-icon { font-size: 0.85rem; }
+
+.bcard-actions { display: flex; justify-content: flex-end; }
 .btn-cancel {
-  padding: 0.3rem 0.9rem;
-  background: rgba(239,83,80,0.15);
-  border: 1px solid #ef5350;
-  color: #ef9a9a;
-  border-radius: 6px;
+  display: flex; align-items: center; gap: 0.4rem;
+  background: rgba(240,82,82,0.1);
+  border: 1px solid rgba(240,82,82,0.3);
+  color: #f87171;
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
   font-size: 0.85rem;
+  font-weight: 700;
+  transition: all 0.15s;
 }
-.btn-cancel:hover { background: rgba(239,83,80,0.3); }
+.btn-cancel:hover { background: rgba(240,82,82,0.2); border-color: rgba(240,82,82,0.5); }
 </style>
