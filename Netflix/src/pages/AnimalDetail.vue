@@ -289,6 +289,7 @@ async function submitBooking() {
       userEmail: currentUser.value.email,
       animalId: props.id,
       animalName: animal.value.name,
+      animalCategory: animal.value.category || '',
       date: bookingDate.value,
       time: bookingTime.value,
       type: bookingType.value,
