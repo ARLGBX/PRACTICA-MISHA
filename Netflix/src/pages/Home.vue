@@ -1,1220 +1,612 @@
 <template>
-  <div class="container">
-    <nav class="navbar">
-      <div class="nav-left">
-        <div class="logo" @click="resetFilters">NETFLIX</div>
-        <div class="nav-links">
-          <router-link to="/profile" class="nav-link">Мой профиль</router-link>
-          <router-link v-if="isAdmin" to="/admin" class="nav-link admin-link">🔧 Админка</router-link>
-        </div>
-      </div>
+  <div class="page">
+    <Header :currentUser="currentUser" :isAdmin="isAdmin" @show-auth="showAuth = true" />
+    <AuthModal v-if="showAuth" @close="showAuth = false" />
 
-      <div class="nav-right">
-        <div class="search-container">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-inner">
+        <div class="hero-badge">🌿 Добро пожаловать</div>
+        <h1 class="hero-title">Найдите своего<br><span class="hero-accent">идеального питомца</span></h1>
+        <p class="hero-sub">Запишитесь на визит или усыновление прямо сейчас. Тысячи животных ждут новый дом.</p>
+        <div class="hero-search">
+          <span class="search-icon">🔍</span>
           <input
-              class="search"
-              type="text"
-              placeholder="Поиск фильмов..."
-              v-model="searchQuery"
-              @input="handleSearch"
+            v-model="search"
+            type="text"
+            placeholder="Поиск по имени, виду или породе..."
+            class="hero-search-input"
           />
-          <button v-if="searchQuery" class="clear-search" @click="clearSearch">✕</button>
         </div>
+      </div>
+      <div class="hero-decor">
+        <div class="decor-circle c1"></div>
+        <div class="decor-circle c2"></div>
+        <div class="decor-circle c3"></div>
+      </div>
+    </section>
 
-        <div class="filter-sort-container">
-          <button class="filter-btn" @click="showFilters = !showFilters">
-            ⚙️ Фильтры
+    <main class="main">
+      <!-- Filters -->
+      <div class="controls">
+        <div class="filters">
+          <button
+            v-for="cat in categories"
+            :key="cat.value"
+            :class="['filter-pill', { active: selectedCategory === cat.value }]"
+            @click="selectedCategory = cat.value; currentPage = 1"
+          >
+            <span>{{ cat.emoji }}</span>{{ cat.label }}
           </button>
-          <select v-model="sortBy" class="sort-select" @change="handleSortChange">
-            <option value="rating_desc">По рейтингу ↓</option>
-            <option value="rating_asc">По рейтингу ↑</option>
-            <option value="year_desc">По году ↓</option>
-            <option value="year_asc">По году ↑</option>
-            <option value="title_asc">По названию А-Я</option>
-            <option value="title_desc">По названию Я-А</option>
-            <option value="comments_desc">По популярности ↓</option>
-          </select>
         </div>
 
-        <div class="user-menu" @click="showUserMenu = !showUserMenu">
-          <div class="user-icon">
-            <span v-if="user">{{ user.email?.[0]?.toUpperCase() || '👤' }}</span>
-            <span v-else>👤</span>
+        <div class="sort-row">
+          <span class="sort-label">Сортировка:</span>
+          <select v-model="sortBy" @change="currentPage = 1" class="sort-select">
+            <option value="name">Название</option>
+            <option value="price_asc">Цена ↑</option>
+            <option value="price_desc">Цена ↓</option>
+            <option value="age">Возраст</option>
+            <option value="rating">Рейтинг</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Results count -->
+      <div v-if="!loading" class="results-meta">
+        <span class="results-count">{{ filtered.length }} питомцев</span>
+        <span v-if="search || selectedCategory !== 'all'" class="results-hint">по вашим фильтрам</span>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="loading" class="loading-wrap">
+        <div class="spinner"></div>
+        <p>Загрузка питомцев...</p>
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="paginatedAnimals.length === 0" class="empty-state">
+        <div class="empty-emoji">🔍</div>
+        <h3>Ничего не найдено</h3>
+        <p>Попробуйте изменить фильтры или поисковый запрос</p>
+        <button class="reset-btn" @click="search = ''; selectedCategory = 'all'">Сбросить фильтры</button>
+      </div>
+
+      <!-- Grid -->
+      <div v-else class="grid">
+        <div
+          v-for="animal in paginatedAnimals"
+          :key="animal.id"
+          class="animal-card"
+          @click="$router.push('/animal/' + animal.id)"
+        >
+          <div class="card-media">
+            <img
+              :src="animal.imageUrl || 'https://placehold.co/400x300/0f2318/3ecf5e?text=' + encodeURIComponent(animal.name)"
+              :alt="animal.name"
+              class="card-img"
+              @error="e => e.target.src = 'https://placehold.co/400x300/0f2318/3ecf5e?text=' + encodeURIComponent(animal.name)"
+            />
+            <div class="card-overlay"></div>
+            <span :class="['avail-badge', animal.available ? 'yes' : 'no']">
+              <span class="avail-dot"></span>{{ animal.available ? 'Доступен' : 'Занят' }}
+            </span>
+            <button
+              class="fav-btn"
+              @click.stop="toggleFavorite(animal.id)"
+              :title="isFavorite(animal.id) ? 'Убрать из избранного' : 'В избранное'"
+            >{{ isFavorite(animal.id) ? '❤️' : '🤍' }}</button>
           </div>
-          <div v-if="showUserMenu" class="user-dropdown" @click.stop>
-            <div v-if="user" class="user-info">
-              <div class="user-email">{{ user.email }}</div>
-              <button @click="logout" class="logout-btn">Выйти</button>
+          <div class="card-body">
+            <div class="card-category">{{ animal.category }}</div>
+            <h3 class="card-name">{{ animal.name }}</h3>
+            <p class="card-species">{{ animal.species }}<span v-if="animal.breed"> · {{ animal.breed }}</span></p>
+            <div class="card-chips">
+              <span class="chip">{{ animal.age }} лет</span>
+              <span class="chip">{{ animal.gender }}</span>
             </div>
-            <button v-else @click="showAuthModal = true" class="login-btn">Войти</button>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <div v-if="showFilters" class="filters-panel">
-      <div class="filters-header">
-        <h3>Фильтры</h3>
-        <button class="reset-filters" @click="resetFilters">Сбросить все</button>
-      </div>
-      <div class="filters-grid">
-        <div class="filter-group">
-          <label>Жанр</label>
-          <select v-model="filters.genre">
-            <option value="">Все жанры</option>
-            <option v-for="genre in genres" :key="genre" :value="genre">{{ genre }}</option>
-          </select>
-        </div>
-        <div class="filter-group">
-          <label>Год выпуска</label>
-          <div class="year-range">
-            <input type="number" v-model="filters.yearFrom" placeholder="От" class="year-input" />
-            <span>-</span>
-            <input type="number" v-model="filters.yearTo" placeholder="До" class="year-input" />
-          </div>
-        </div>
-        <div class="filter-group">
-          <label>Рейтинг</label>
-          <div class="rating-range">
-            <input type="range" v-model="filters.ratingMin" min="0" max="10" step="0.5" />
-            <span>{{ filters.ratingMin }} - 10</span>
-          </div>
-        </div>
-        <div class="filter-group">
-          <label>Длительность (мин)</label>
-          <div class="duration-range">
-            <input type="number" v-model="filters.durationMax" placeholder="Макс." class="duration-input" />
-            <span>мин</span>
-          </div>
-        </div>
-        <div class="filter-group">
-          <label>Возрастной рейтинг</label>
-          <select v-model="filters.ageRating">
-            <option value="">Любой</option>
-            <option value="0">0+</option>
-            <option value="6">6+</option>
-            <option value="12">12+</option>
-            <option value="16">16+</option>
-            <option value="18">18+</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
-    <div class="results-header">
-      <h2>{{ showFavoritesOnly ? 'Избранные фильмы' : '' }}</h2>
-      <div class="results-info">
-        <span>Найдено: {{ filteredMovies.length }} фильмов</span>
-        <button v-if="showFavoritesOnly" class="show-all" @click="showFavoritesOnly = false">
-          Показать все
-        </button>
-        <button v-else class="show-favorites" @click="showFavoritesOnly = true">
-          ⭐ Избранное
-        </button>
-      </div>
-    </div>
-
-    <div class="carousel-container">
-      <div class="carousel-header">
-        <div class="carousel-controls">
-          <button class="control-btn prev" @click="prevSlide" :disabled="currentSlide === 0">❮</button>
-          <span class="slide-counter">{{ currentSlide + 1 }} / {{ totalSlides }}</span>
-          <button class="control-btn next" @click="nextSlide" :disabled="currentSlide >= totalSlides - 1">❯</button>
-        </div>
-      </div>
-
-      <div class="carousel-wrapper">
-        <div class="carousel-track" :style="{ transform: `translateX(-${currentSlide * 100}%)` }">
-          <div v-for="(slideGroup, slideIndex) in movieSlides" :key="slideIndex" class="carousel-slide">
-            <div v-for="movie in slideGroup" :key="movie.id" class="card" @click="goToMovie(movie.id)">
-              <div class="card-poster" :style="{ backgroundImage: `url(${movie.poster})` }">
-                <div class="favorite-badge" @click.stop="toggleFavorite(movie)">
-                  <span v-if="movie.isFavorite">❤️</span>
-                  <span v-else>🤍</span>
-                </div>
-                <div class="card-gradient"></div>
-                <div class="card-info">
-                  <h3>{{ movie.title }}</h3>
-                  <div class="rating-section">
-                    <div class="rating-stars">
-                      <span class="star">⭐</span>
-                      <span class="rating-value">{{ movie.rating }}</span>
-                      <span class="rating-count">({{ formatNumber(movie.ratingCount) }})</span>
-                    </div>
-                  </div>
-                  <div class="comments-section">
-                    <span class="comment-icon">💬</span>
-                    <span class="comment-count">{{ formatNumber(movie.commentsCount) }} комментариев</span>
-                  </div>
-                  <div class="movie-meta">
-                    <span class="year">{{ movie.year }} год</span>
-                    <span class="duration">{{ movie.duration }} мин</span>
-                    <span class="age-rating">{{ movie.ageRating }}+</span>
-                  </div>
-                </div>
-              </div>
+            <div class="card-footer">
+              <span class="card-price">{{ animal.price ? animal.price.toLocaleString('ru-RU') + ' ₽' : 'Бесплатно' }}</span>
+              <span class="card-rating">
+                <span class="star">★</span>{{ animal.rating ? animal.rating.toFixed(1) : '—' }}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="carousel-dots" v-if="totalSlides > 1">
-        <button v-for="(_, index) in totalSlides" :key="index" class="dot" :class="{ active: currentSlide === index }" @click="goToSlide(index)"></button>
+      <!-- Load more -->
+      <div v-if="hasMore && !loading" class="load-more">
+        <button class="load-more-btn" @click="loadMore">
+          Показать ещё
+          <span class="load-more-count">(ещё {{ filtered.length - paginatedAnimals.length }})</span>
+        </button>
       </div>
-    </div>
-
-    <div v-if="paginatedMovies.length > 0 && !showFavoritesOnly" class="movies-grid-section">
-      <h2>Все фильмы</h2>
-      <div class="movies-grid">
-        <div v-for="movie in paginatedMovies" :key="movie.id" class="grid-card" @click="goToMovie(movie.id)">
-          <img :src="movie.poster" :alt="movie.title" class="grid-poster">
-          <div class="grid-info">
-            <h4>{{ movie.title }}</h4>
-            <div class="grid-rating">⭐ {{ movie.rating }}</div>
-            <div class="grid-year">{{ movie.year }} · {{ movie.duration }} мин</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="pagination">
-        <button @click="currentPage--" :disabled="currentPage === 1" class="page-btn">← Назад</button>
-        <span class="page-info">Страница {{ currentPage }} из {{ totalPages }}</span>
-        <button @click="currentPage++" :disabled="currentPage === totalPages" class="page-btn">Вперед →</button>
-      </div>
-    </div>
-
-    <div v-if="loading" class="loading">Загрузка фильмов...</div>
-    <div v-if="!loading && filteredMovies.length === 0" class="empty-state">
-      <p>Фильмы не найдены</p>
-      <button class="reset-btn" @click="resetFilters">Сбросить фильтры</button>
-    </div>
-
-    <AuthModal :showModal="showAuthModal" @close="showAuthModal = false" @success="onAuthSuccess" />
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { collection, getDocs, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore'
-import { db, auth } from '../firebase/config.js'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import AuthModal from '../pages/AuthModal.vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { collection, onSnapshot, query } from 'firebase/firestore'
+import { onAuthStateChanged } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
+import { db, auth } from '../firebase/config'
+import Header from '../components/Header.vue'
+import AuthModal from './AuthModal.vue'
 
-const router = useRouter()
-
-
-const movies = ref([])
-const searchQuery = ref('')
-const loading = ref(true)
-const currentSlide = ref(0)
-const showFavoritesOnly = ref(false)
-const showUserMenu = ref(false)
-const showAuthModal = ref(false)
-const showFilters = ref(false)
-const user = ref(null)
+const currentUser = ref(null)
 const isAdmin = ref(false)
+const showAuth = ref(false)
+const loading = ref(true)
+const animals = ref([])
+const search = ref('')
+const selectedCategory = ref('all')
+const sortBy = ref('name')
 const currentPage = ref(1)
-const ITEMS_PER_PAGE = 12
-const ITEMS_PER_SLIDE = 5
-
-
-const genres = ['Боевик', 'Комедия', 'Драма', 'Фантастика', 'Ужасы', 'Триллер', 'Мелодрама', 'Документальный']
-
-
-const filters = ref({
-  genre: '',
-  yearFrom: '',
-  yearTo: '',
-  ratingMin: 0,
-  durationMax: '',
-  ageRating: ''
-})
-
-
-const sortBy = ref('rating_desc')
-
-
-const sortMovies = (moviesList) => {
-  const sorted = [...moviesList]
-  switch (sortBy.value) {
-    case 'rating_desc':
-      return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0))
-    case 'rating_asc':
-      return sorted.sort((a, b) => (a.rating || 0) - (b.rating || 0))
-    case 'year_desc':
-      return sorted.sort((a, b) => (b.year || 0) - (a.year || 0))
-    case 'year_asc':
-      return sorted.sort((a, b) => (a.year || 0) - (b.year || 0))
-    case 'title_asc':
-      return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
-    case 'title_desc':
-      return sorted.sort((a, b) => (b.title || '').localeCompare(a.title || ''))
-    case 'comments_desc':
-      return sorted.sort((a, b) => (b.commentsCount || 0) - (a.commentsCount || 0))
-    default:
-      return sorted
-  }
-}
-
-
-const filteredMovies = computed(() => {
-  let result = movies.value
-
-  
-  if (showFavoritesOnly.value) {
-    result = result.filter(movie => movie.isFavorite)
-  }
-
-  
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(movie =>
-        movie.title.toLowerCase().includes(q) ||
-        movie.description?.toLowerCase().includes(q)
-    )
-  }
-
-  
-  if (filters.value.genre) {
-    result = result.filter(movie => movie.genre === filters.value.genre)
-  }
-
-  
-  if (filters.value.yearFrom) {
-    result = result.filter(movie => (movie.year || 0) >= parseInt(filters.value.yearFrom))
-  }
-  if (filters.value.yearTo) {
-    result = result.filter(movie => (movie.year || 0) <= parseInt(filters.value.yearTo))
-  }
-
-  
-  if (filters.value.ratingMin > 0) {
-    result = result.filter(movie => (movie.rating || 0) >= filters.value.ratingMin)
-  }
-
-  
-  if (filters.value.durationMax) {
-    result = result.filter(movie => {
-      const duration = parseInt(movie.duration)
-      return duration && duration <= parseInt(filters.value.durationMax)
-    })
-  }
-
-  
-  if (filters.value.ageRating) {
-    result = result.filter(movie => parseInt(movie.ageRating) >= parseInt(filters.value.ageRating))
-  }
-
-  
-  return sortMovies(result)
-})
-
-
-const totalPages = computed(() => {
-  return Math.ceil(filteredMovies.value.length / ITEMS_PER_PAGE)
-})
-
-const paginatedMovies = computed(() => {
-  const start = (currentPage.value - 1) * ITEMS_PER_PAGE
-  const end = start + ITEMS_PER_PAGE
-  return filteredMovies.value.slice(start, end)
-})
-
-
-const carouselMovies = computed(() => {
-  return filteredMovies.value.slice(0, 20)
-})
-
-const movieSlides = computed(() => {
-  const slides = []
-  for (let i = 0; i < carouselMovies.value.length; i += ITEMS_PER_SLIDE) {
-    slides.push(carouselMovies.value.slice(i, i + ITEMS_PER_SLIDE))
-  }
-  return slides
-})
-
-const totalSlides = computed(() => movieSlides.value.length)
-
-
-const nextSlide = () => {
-  if (currentSlide.value < totalSlides.value - 1) {
-    currentSlide.value++
-  }
-}
-
-const prevSlide = () => {
-  if (currentSlide.value > 0) {
-    currentSlide.value--
-  }
-}
-
-const goToSlide = (index) => {
-  currentSlide.value = index
-}
-
-
-const resetFilters = () => {
-  searchQuery.value = ''
-  showFavoritesOnly.value = false
-  filters.value = {
-    genre: '',
-    yearFrom: '',
-    yearTo: '',
-    ratingMin: 0,
-    durationMax: '',
-    ageRating: ''
-  }
-  sortBy.value = 'rating_desc'
-  currentPage.value = 1
-  currentSlide.value = 0
-}
-
-
-const handleSearch = () => {
-  currentPage.value = 1
-  currentSlide.value = 0
-}
-
-const handleSortChange = () => {
-  currentPage.value = 1
-}
-
-const clearSearch = () => {
-  searchQuery.value = ''
-  handleSearch()
-}
-
-
-const checkAdminStatus = async () => {
-  if (user.value) {
-    try {
-      const userDataRef = doc(db, 'userData', user.value.uid)
-      const userData = await getDoc(userDataRef)
-      isAdmin.value = userData.exists() && userData.data().role === 'admin'
-    } catch (error) {
-      console.error('Ошибка проверки прав:', error)
-    }
-  }
-}
-
-
-let unsubscribeMovies = null
-
-const subscribeToMovies = () => {
-  if (unsubscribeMovies) {
-    unsubscribeMovies()
-  }
-
-  unsubscribeMovies = onSnapshot(collection(db, 'movies'), (snapshot) => {
-    const newMovies = snapshot.docs.map(doc => ({
-      id: doc.id,
-      title: doc.data().title || 'Название фильма',
-      poster: doc.data().poster || '',
-      rating: doc.data().rating || 0,
-      ratingCount: doc.data().ratingCount || 0,
-      commentsCount: doc.data().commentsCount || 0,
-      year: doc.data().year || '2024',
-      duration: doc.data().duration || '120',
-      ageRating: doc.data().ageRating || '16',
-      genre: doc.data().genre || 'Драма',
-      description: doc.data().description || '',
-      isFavorite: false
-    }))
-
-    movies.value = newMovies
-
-    if (user.value) {
-      loadUserFavorites()
-    }
-
-    loading.value = false
-  }, (error) => {
-    console.error('Ошибка подписки на фильмы:', error)
-    loading.value = false
-  })
-}
-
-
-const loadUserFavorites = async () => {
-  if (!user.value) return
-
-  try {
-    const userFavoritesRef = doc(db, 'userFavorites', user.value.uid)
-    const favoritesDoc = await getDoc(userFavoritesRef)
-
-    if (favoritesDoc.exists()) {
-      const favoriteIds = favoritesDoc.data().movieIds || []
-      movies.value = movies.value.map(movie => ({
-        ...movie,
-        isFavorite: favoriteIds.includes(movie.id)
-      }))
-    }
-  } catch (error) {
-    console.error('Ошибка загрузки избранного:', error)
-  }
-}
-
-
-const toggleFavorite = async (movie) => {
-  if (!user.value) {
-    showAuthModal.value = true
-    return
-  }
-
-  const newFavoriteStatus = !movie.isFavorite
-  movie.isFavorite = newFavoriteStatus
-
-  const userFavoritesRef = doc(db, 'userFavorites', user.value.uid)
-
-  try {
-    const favoritesDoc = await getDoc(userFavoritesRef)
-    let favoriteIds = []
-
-    if (favoritesDoc.exists()) {
-      favoriteIds = favoritesDoc.data().movieIds || []
-    }
-
-    if (newFavoriteStatus) {
-      if (!favoriteIds.includes(movie.id)) {
-        favoriteIds.push(movie.id)
-      }
-    } else {
-      favoriteIds = favoriteIds.filter(id => id !== movie.id)
-    }
-
-    await setDoc(userFavoritesRef, { movieIds: favoriteIds })
-  } catch (error) {
-    console.error('Ошибка обновления избранного:', error)
-    movie.isFavorite = !newFavoriteStatus
-  }
-}
-
-
-const logout = async () => {
-  try {
-    await signOut(auth)
-    showUserMenu.value = false
-    showFavoritesOnly.value = false
-  } catch (error) {
-    console.error('Ошибка выхода:', error)
-  }
-}
-
-
-const goToMovie = (id) => {
-  router.push(`/movie/${id}`)
-}
-
-
-const formatNumber = (num) => {
-  if (!num) return '0'
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-  return num.toString()
-}
-
-
-const onAuthSuccess = () => {
-  if (user.value) {
-    loadUserFavorites()
-  }
-}
-
-
-onAuthStateChanged(auth, (currentUser) => {
-  user.value = currentUser
-  checkAdminStatus()
-  if (currentUser) {
-    loadUserFavorites()
-  } else {
-    movies.value = movies.value.map(movie => ({
-      ...movie,
-      isFavorite: false
-    }))
-  }
-})
-
-
-watch([filteredMovies, showFavoritesOnly, searchQuery, filters, sortBy], () => {
-  currentPage.value = 1
-  currentSlide.value = 0
-})
-
+const pageSize = 12
+const favorites = ref(JSON.parse(localStorage.getItem('zoo_favorites') || '[]'))
+
+const categories = [
+  { value: 'all', label: 'Все', emoji: '🐾' },
+  { value: 'Кошки', label: 'Кошки', emoji: '🐱' },
+  { value: 'Собаки', label: 'Собаки', emoji: '🐶' },
+  { value: 'Птицы', label: 'Птицы', emoji: '🦜' },
+  { value: 'Грызуны', label: 'Грызуны', emoji: '🐹' },
+  { value: 'Рептилии', label: 'Рептилии', emoji: '🦎' },
+  { value: 'Экзотика', label: 'Экзотика', emoji: '🦋' },
+]
+
+let unsubAnimals = null
 
 onMounted(() => {
-  subscribeToMovies()
+  const q = query(collection(db, 'animals'))
+  unsubAnimals = onSnapshot(q, snap => {
+    animals.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    loading.value = false
+  })
 })
+
+onUnmounted(() => {
+  if (unsubAnimals) unsubAnimals()
+  unsubAuth()
+})
+
+const unsubAuth = onAuthStateChanged(auth, async user => {
+  currentUser.value = user
+  if (user) {
+    const snap = await getDoc(doc(db, 'userData', user.uid))
+    isAdmin.value = snap.exists() && snap.data().role === 'admin'
+  } else {
+    isAdmin.value = false
+  }
+})
+
+const filtered = computed(() => {
+  let list = animals.value
+  if (selectedCategory.value !== 'all') list = list.filter(a => a.category === selectedCategory.value)
+  if (search.value.trim()) {
+    const q = search.value.toLowerCase()
+    list = list.filter(a =>
+      (a.name || '').toLowerCase().includes(q) ||
+      (a.species || '').toLowerCase().includes(q) ||
+      (a.breed || '').toLowerCase().includes(q)
+    )
+  }
+  return [...list].sort((a, b) => {
+    if (sortBy.value === 'name') return (a.name || '').localeCompare(b.name || '')
+    if (sortBy.value === 'price_asc') return (a.price || 0) - (b.price || 0)
+    if (sortBy.value === 'price_desc') return (b.price || 0) - (a.price || 0)
+    if (sortBy.value === 'age') return (a.age || 0) - (b.age || 0)
+    if (sortBy.value === 'rating') return (b.rating || 0) - (a.rating || 0)
+    return 0
+  })
+})
+
+watch([search, selectedCategory], () => { currentPage.value = 1 })
+
+const paginatedAnimals = computed(() => filtered.value.slice(0, currentPage.value * pageSize))
+const hasMore = computed(() => paginatedAnimals.value.length < filtered.value.length)
+
+function loadMore() { currentPage.value++ }
+function isFavorite(id) { return favorites.value.includes(id) }
+function toggleFavorite(id) {
+  if (isFavorite(id)) {
+    favorites.value = favorites.value.filter(f => f !== id)
+  } else {
+    favorites.value.push(id)
+  }
+  localStorage.setItem('zoo_favorites', JSON.stringify(favorites.value))
+}
 </script>
 
 <style scoped>
-.container {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0;
-  background: #141414;
-  color: #fff;
-  min-height: 100vh;
-}
+.page { min-height: 100vh; }
 
-.navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 50px;
-  background: rgba(0,0,0,0.9);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.nav-left {
-  display: flex;
-  align-items: center;
-  gap: 40px;
-}
-
-.logo {
-  font-size: 34px;
-  font-weight: 900;
-  color: #e50914;
-  cursor: pointer;
-}
-
-.nav-links a, .nav-links .router-link-active {
-  color: #ddd;
-  text-decoration: none;
-  font-size: 15.5px;
-  margin-right: 25px;
-}
-
-.nav-links .active {
-  color: white;
-}
-
-.admin-link {
-  color: #e50914 !important;
-  font-weight: bold;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  flex-wrap: wrap;
-}
-
-.search-container {
+/* ---- HERO ---- */
+.hero {
   position: relative;
-}
-
-.search {
-  padding: 10px 20px;
-  width: 320px;
-  background: rgba(255,255,255,0.12);
-  border: none;
-  border-radius: 4px;
-  color: white;
-}
-
-.search::placeholder {
-  color: rgba(255,255,255,0.7);
-}
-
-.search:focus {
-  outline: none;
-  background: rgba(255,255,255,0.2);
-}
-
-.clear-search {
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  color: #aaa;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.filter-sort-container {
-  display: flex;
-  gap: 10px;
-}
-
-.filter-btn, .sort-select {
-  padding: 10px 15px;
-  background: rgba(255,255,255,0.12);
-  border: none;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.filter-btn:hover, .sort-select:hover {
-  background: rgba(255,255,255,0.2);
-}
-
-.sort-select option {
-  background: #141414;
-}
-
-.filters-panel {
-  background: #1a1a1a;
-  margin: 20px 50px;
-  padding: 20px;
-  border-radius: 12px;
-}
-
-.filters-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.filters-header h3 {
-  margin: 0;
-}
-
-.reset-filters, .reset-btn, .show-all, .show-favorites {
-  padding: 8px 16px;
-  background: #333;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  cursor: pointer;
-}
-
-.reset-filters:hover, .reset-btn:hover {
-  background: #e50914;
-}
-
-.filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.filter-group label {
-  color: #aaa;
-  font-size: 14px;
-}
-
-.filter-group select, .filter-group input {
-  padding: 8px 12px;
-  background: #333;
-  border: none;
-  border-radius: 4px;
-  color: white;
-}
-
-.year-range, .duration-range {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.year-input, .duration-input {
-  width: 80px;
-}
-
-.rating-range {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.rating-range input {
-  flex: 1;
-}
-
-.results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 50px;
-  flex-wrap: wrap;
-  gap: 15px;
-}
-
-.results-header h2 {
-  margin: 0;
-  font-size: 24px;
-}
-
-.results-info {
-  display: flex;
-  gap: 15px;
-  align-items: center;
-  color: #aaa;
-}
-
-.carousel-container {
-  padding: 0 50px 40px;
-}
-
-.carousel-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 20px;
-}
-
-.carousel-controls {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.control-btn {
-  width: 40px;
-  height: 40px;
-  background: rgba(255,255,255,0.2);
-  border: none;
-  border-radius: 50%;
-  color: white;
-  font-size: 20px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.control-btn:hover:not(:disabled) {
-  background: #e50914;
-  transform: scale(1.1);
-}
-
-.control-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.slide-counter {
-  font-size: 14px;
-  color: #aaa;
-  min-width: 60px;
+  overflow: hidden;
+  padding: 5rem 1.5rem 4rem;
   text-align: center;
+  background: linear-gradient(180deg, rgba(62,207,94,0.07) 0%, transparent 100%);
 }
-
-.carousel-wrapper {
-  overflow: hidden;
-  position: relative;
-}
-
-.carousel-track {
-  display: flex;
-  transition: transform 0.5s ease-in-out;
-}
-
-.carousel-slide {
-  flex: 0 0 100%;
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 28px;
-  padding: 10px 0;
-}
-
-.card {
-  height: 500px;
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.4s ease;
-  position: relative;
-}
-
-.card:hover {
-  transform: scale(1.07);
-}
-
-.card-poster {
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  position: relative;
-}
-
-.favorite-badge {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  width: 40px;
-  height: 40px;
-  background: rgba(0,0,0,0.7);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  cursor: pointer;
-  z-index: 10;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(5px);
-}
-
-.favorite-badge:hover {
-  transform: scale(1.1);
-  background: rgba(0,0,0,0.9);
-}
-
-.card-gradient {
+.hero::before {
+  content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.65), transparent);
+  background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(62,207,94,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-inner { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(62,207,94,0.1);
+  border: 1px solid rgba(62,207,94,0.25);
+  color: #3ecf5e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.02em;
 }
 
-.card-info {
+.hero-title {
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 900;
+  color: #eef8f0;
+  margin-bottom: 1rem;
+  line-height: 1.15;
+}
+.hero-accent {
+  background: linear-gradient(135deg, #3ecf5e 0%, #a8f0b8 60%, #f5c842 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  color: rgba(238,248,240,0.55);
+  font-size: 1.05rem;
+  margin-bottom: 2rem;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-search {
+  position: relative;
+  max-width: 520px;
+  margin: 0 auto;
+}
+.search-icon {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 25px 22px;
-  z-index: 2;
-  color: white;
+  left: 1.1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  pointer-events: none;
 }
-
-.card-info h3 {
-  margin: 0 0 15px 0;
-  font-size: 19px;
-  line-height: 1.35;
+.hero-search-input {
+  width: 100%;
+  padding: 0.85rem 1.2rem 0.85rem 2.8rem;
+  font-size: 1rem;
   font-weight: 600;
+  background: rgba(15,35,24,0.9);
+  border: 1.5px solid rgba(62,207,94,0.25);
+  border-radius: 14px;
+  color: #eef8f0;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
-
-.rating-section {
-  margin-bottom: 12px;
+.hero-search-input:focus {
+  border-color: #3ecf5e;
+  box-shadow: 0 0 0 4px rgba(62,207,94,0.12), 0 4px 20px rgba(0,0,0,0.3);
+  outline: none;
 }
+.hero-search-input::placeholder { color: rgba(238,248,240,0.3); font-weight: 400; }
 
-.rating-stars {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.star {
-  font-size: 14px;
-  color: #ffd700;
-}
-
-.rating-value {
-  font-weight: 600;
-  font-size: 16px;
-  color: #ffd700;
-}
-
-.rating-count {
-  font-size: 13px;
-  color: #aaa;
-}
-
-.comments-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: #ccc;
-}
-
-.movie-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 13px;
-  color: #aaa;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,0.2);
-}
-
-.year, .duration, .age-rating {
-  padding: 2px 6px;
-  background: rgba(0,0,0,0.5);
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.age-rating {
-  background: #e50914;
-  color: white;
-}
-
-.carousel-dots {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 30px;
-}
-
-.dot {
-  width: 10px;
-  height: 10px;
+/* Decorative circles */
+.hero-decor { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.decor-circle {
+  position: absolute;
   border-radius: 50%;
-  background: rgba(255,255,255,0.3);
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  padding: 0;
+  border: 1px solid rgba(62,207,94,0.08);
+}
+.c1 { width: 500px; height: 500px; top: -200px; left: -150px; }
+.c2 { width: 350px; height: 350px; top: -80px; right: -100px; }
+.c3 { width: 200px; height: 200px; bottom: -50px; left: 40%; border-color: rgba(245,200,66,0.06); }
+
+/* ---- MAIN ---- */
+.main {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 1.5rem 1.75rem 4rem;
 }
 
-.dot:hover {
-  background: rgba(255,255,255,0.6);
+/* Controls */
+.controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
 }
 
-.dot.active {
-  background: #e50914;
-  width: 30px;
-  border-radius: 5px;
+.filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+.filter-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1.05rem;
+  background: rgba(255,255,255,0.03);
+  border: 1.5px solid rgba(62,207,94,0.18);
+  color: rgba(238,248,240,0.65);
+  border-radius: 999px;
+  font-size: 0.87rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+.filter-pill:hover {
+  border-color: rgba(62,207,94,0.45);
+  color: #eef8f0;
+  background: rgba(62,207,94,0.07);
+}
+.filter-pill.active {
+  background: linear-gradient(135deg, rgba(62,207,94,0.2) 0%, rgba(62,207,94,0.1) 100%);
+  border-color: #3ecf5e;
+  color: #3ecf5e;
+  box-shadow: 0 0 12px rgba(62,207,94,0.15);
 }
 
-.movies-grid-section {
-  padding: 20px 50px 50px;
+.sort-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+.sort-label { color: rgba(238,248,240,0.4); font-size: 0.85rem; font-weight: 600; }
+.sort-select {
+  padding: 0.45rem 0.85rem;
+  font-size: 0.87rem;
+  font-weight: 700;
+  background: rgba(15,35,24,0.8);
+  border: 1.5px solid rgba(62,207,94,0.2);
+  border-radius: 10px;
+  min-width: 140px;
 }
 
-.movies-grid-section h2 {
-  margin-bottom: 25px;
-  font-size: 24px;
+/* Results meta */
+.results-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  color: rgba(238,248,240,0.4);
+  font-size: 0.88rem;
+}
+.results-count { font-weight: 800; color: rgba(238,248,240,0.7); font-size: 0.95rem; }
+
+/* Loading */
+.loading-wrap {
+  text-align: center;
+  padding: 5rem 2rem;
+  color: rgba(238,248,240,0.45);
 }
 
-.movies-grid {
+/* Empty */
+.empty-state {
+  text-align: center;
+  padding: 5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+.empty-emoji { font-size: 3.5rem; }
+.empty-state h3 { color: #eef8f0; font-size: 1.3rem; }
+.empty-state p { color: rgba(238,248,240,0.4); font-size: 0.95rem; }
+.reset-btn {
+  margin-top: 0.5rem;
+  background: rgba(62,207,94,0.12);
+  border: 1.5px solid rgba(62,207,94,0.3);
+  color: #3ecf5e;
+  padding: 0.55rem 1.4rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.reset-btn:hover { background: rgba(62,207,94,0.2); }
+
+/* Grid */
+.grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 25px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 1.5rem;
 }
 
-.grid-card {
-  background: #1a1a1a;
-  border-radius: 12px;
+/* Card */
+.animal-card {
+  background: rgba(17,42,28,0.7);
+  border: 1.5px solid rgba(62,207,94,0.12);
+  border-radius: 18px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.3s;
+  transition: all 0.25s cubic-bezier(.4,0,.2,1);
+  backdrop-filter: blur(4px);
+  position: relative;
 }
-
-.grid-card:hover {
+.animal-card:hover {
   transform: translateY(-5px);
+  border-color: rgba(62,207,94,0.4);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(62,207,94,0.2);
 }
 
-.grid-poster {
+.card-media { position: relative; overflow: hidden; }
+.card-img {
   width: 100%;
-  height: 280px;
+  height: 210px;
   object-fit: cover;
+  transition: transform 0.35s ease;
+}
+.animal-card:hover .card-img { transform: scale(1.04); }
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(7,18,10,0.75) 0%, transparent 50%);
+  pointer-events: none;
 }
 
-.grid-info {
-  padding: 12px;
+.avail-badge {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(8px);
+}
+.avail-badge.yes {
+  background: rgba(62,207,94,0.85);
+  color: #fff;
+}
+.avail-badge.no {
+  background: rgba(240,82,82,0.85);
+  color: #fff;
+}
+.avail-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+.avail-badge.no .avail-dot { animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
-.grid-info h4 {
-  margin: 0 0 8px 0;
-  font-size: 16px;
+.fav-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  background: rgba(7,18,10,0.65);
+  backdrop-filter: blur(6px);
+  border-radius: 50%;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s;
+}
+.fav-btn:hover { background: rgba(7,18,10,0.85); transform: scale(1.1); }
+
+.card-body { padding: 1.1rem; }
+.card-category {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #3ecf5e;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+}
+.card-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #eef8f0;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.card-species {
+  color: rgba(238,248,240,0.45);
+  font-size: 0.83rem;
+  margin-bottom: 0.7rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.grid-rating {
-  color: #ffd700;
-  font-size: 14px;
-  margin-bottom: 4px;
+.card-chips { display: flex; gap: 0.4rem; margin-bottom: 0.85rem; }
+.chip {
+  padding: 0.2rem 0.6rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(62,207,94,0.15);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(238,248,240,0.6);
 }
 
-.grid-year {
-  color: #aaa;
-  font-size: 12px;
-}
-
-.pagination {
+.card-footer {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
-  gap: 20px;
-  margin-top: 30px;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(62,207,94,0.1);
 }
-
-.page-btn {
-  padding: 10px 20px;
-  background: #333;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s;
+.card-price {
+  font-size: 1.05rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #3ecf5e, #a8f0b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
-
-.page-btn:hover:not(:disabled) {
-  background: #e50914;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-info {
-  color: #aaa;
-}
-
-.user-menu {
-  position: relative;
-  cursor: pointer;
-}
-
-.user-icon {
-  width: 40px;
-  height: 40px;
-  background: #e50914;
-  border-radius: 50%;
+.card-rating {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: rgba(238,248,240,0.65);
+}
+.star { color: #f5c842; font-size: 0.9rem; }
+
+/* Load more */
+.load-more { text-align: center; margin-top: 3rem; }
+.load-more-btn {
+  background: rgba(62,207,94,0.08);
+  border: 2px solid rgba(62,207,94,0.3);
+  color: #3ecf5e;
+  padding: 0.75rem 2.5rem;
+  border-radius: 14px;
+  font-size: 0.97rem;
+  font-weight: 800;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.load-more-btn:hover {
+  background: rgba(62,207,94,0.16);
+  border-color: #3ecf5e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(62,207,94,0.2);
+}
+.load-more-count {
+  color: rgba(62,207,94,0.6);
+  font-size: 0.85rem;
 }
 
-.user-icon:hover {
-  transform: scale(1.05);
-  background: #f40612;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  background: #141414;
-  border-radius: 8px;
-  padding: 10px;
-  min-width: 200px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  z-index: 100;
-}
-
-.user-info {
-  padding: 10px;
-}
-
-.user-email {
-  color: white;
-  font-size: 14px;
-  margin-bottom: 10px;
-  word-break: break-all;
-}
-
-.logout-btn, .login-btn {
-  width: 100%;
-  padding: 8px;
-  background: #e50914;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.logout-btn:hover, .login-btn:hover {
-  background: #f40612;
-}
-
-.loading, .empty-state {
-  text-align: center;
-  padding: 60px;
-  color: #aaa;
-}
-
-.reset-btn {
-  margin-top: 15px;
-  background: #e50914;
-}
-
-@media (max-width: 1200px) {
-  .carousel-slide {
-    gap: 20px;
-  }
-  .card {
-    height: 450px;
-  }
-}
-
-@media (max-width: 768px) {
-  .navbar {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 15px 20px;
-  }
-
-  .nav-left {
-    justify-content: space-between;
-  }
-
-  .nav-right {
-    flex-direction: column;
-  }
-
-  .search, .filter-btn, .sort-select {
-    width: 100%;
-  }
-
-  .search-container {
-    width: 100%;
-  }
-
-  .search {
-    width: 100%;
-  }
-
-  .filter-sort-container {
-    flex-direction: column;
-  }
-
-  .carousel-slide {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-  }
-
-  .card {
-    height: 380px;
-  }
-
-  .filters-panel {
-    margin: 20px;
-  }
-
-  .results-header {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 20px;
-  }
-
-  .movies-grid-section {
-    padding: 20px;
-  }
-
-  .movies-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-  }
-}
-
-@media (max-width: 480px) {
-  .carousel-slide {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .card {
-    height: 320px;
-  }
-
-  .movies-grid {
-    grid-template-columns: 1fr;
-  }
+@media (max-width: 640px) {
+  .hero { padding: 3.5rem 1rem 2.5rem; }
+  .controls { flex-direction: column; }
+  .sort-row { width: 100%; }
+  .sort-select { flex: 1; }
+  .main { padding: 1rem 1rem 3rem; }
 }
 </style>
+

@@ -1,48 +1,21 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Home from '../pages/Home.vue'
-import MovieDetail from '../pages/MovieDetail.vue'
+import AnimalDetail from '../pages/AnimalDetail.vue'
+import Bookings from '../pages/Bookings.vue'
 import Profile from '../pages/Profile.vue'
 import Admin from '../pages/Admin.vue'
-import GenerateReviews from '../pages/GenerateReviews.vue'
-import Watchlist from '../pages/Watchlist.vue'
 
 const routes = [
-    {
-        path: '/watchlist',
-        name: 'Watchlist',
-        component: Watchlist
-    },
-    {
-        path: '/',
-        name: 'Home',
-        component: Home
-    },
-    {
-        path: '/movie/:id',
-        name: 'MovieDetail',
-        component: MovieDetail,
-        props: true
-    },
-    {
-        path: '/profile',
-        name: 'Profile',
-        component: Profile
-    },
-    {
-        path: '/admin',
-        name: 'Admin',
-        component: Admin
-    },
-    {
-        path: '/generate-reviews',
-        name: 'GenerateReviews',
-        component: GenerateReviews
-    }
+  { path: '/', component: Home },
+  { path: '/animal/:id', component: AnimalDetail, props: true },
+  { path: '/bookings', component: Bookings },
+  { path: '/profile', component: Profile },
+  { path: '/admin', component: Admin },
 ]
 
 const router = createRouter({
-    history: createWebHistory(),
-    routes
+  history: createWebHistory(),
+  routes,
 })
 
 export default router
