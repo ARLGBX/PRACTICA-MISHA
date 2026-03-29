@@ -1,173 +1,56 @@
 <template>
-  <div class="profile-page">
-    <nav class="navbar">
-      <div class="nav-left">
-        <div class="logo" @click="$router.push('/')">NETFLIX</div>
-        <div class="nav-links">
-          <router-link to="/" class="nav-link">Главная</router-link>
-          <router-link to="/profile" class="nav-link active">Профиль</router-link>
-        </div>
+  <div class="page">
+    <Header :currentUser="currentUser" :isAdmin="isAdmin" @show-auth="showAuth = true" />
+    <AuthModal v-if="showAuth" @close="showAuth = false" />
+    <main class="main">
+      <div v-if="!currentUser && !authLoading" class="auth-required">
+        <p>Войдите, чтобы просмотреть профиль</p>
+        <button class="btn-accent" @click="showAuth = true">Войти</button>
       </div>
-      <div class="nav-right">
-        <div class="user-menu" @click="showUserMenu = !showUserMenu">
-          <div class="user-icon">
-            {{ user?.email?.[0]?.toUpperCase() || '👤' }}
-          </div>
-          <div v-if="showUserMenu" class="user-dropdown">
-            <div class="user-info">
-              <div class="user-email">{{ user?.email }}</div>
-              <button @click="logout" class="logout-btn">Выйти</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </nav>
-
-    <Profile :user="user" />
+      <ProfileComponent v-else-if="currentUser" :currentUser="currentUser" />
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { auth } from '../firebase/config'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
-import { useRouter } from 'vue-router'
-import Profile from '../components/Profile.vue'
+import { ref, onUnmounted } from 'vue'
+import { onAuthStateChanged } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
+import { auth, db } from '../firebase/config'
+import Header from '../components/Header.vue'
+import AuthModal from './AuthModal.vue'
+import ProfileComponent from '../components/Profile.vue'
 
-const router = useRouter()
-const user = ref(null)
-const showUserMenu = ref(false)
+const currentUser = ref(null)
+const isAdmin = ref(false)
+const showAuth = ref(false)
+const authLoading = ref(true)
 
-onMounted(() => {
-  onAuthStateChanged(auth, (currentUser) => {
-    user.value = currentUser
-    if (!currentUser) {
-      router.push('/')
-    }
-  })
+const unsubAuth = onAuthStateChanged(auth, async user => {
+  currentUser.value = user
+  authLoading.value = false
+  if (user) {
+    const snap = await getDoc(doc(db, 'userData', user.uid))
+    isAdmin.value = snap.exists() && snap.data().role === 'admin'
+  } else {
+    isAdmin.value = false
+  }
 })
 
-const logout = async () => {
-  try {
-    await signOut(auth)
-    router.push('/')
-  } catch (error) {
-    console.error('Ошибка выхода:', error)
-  }
-}
+onUnmounted(() => unsubAuth())
 </script>
 
 <style scoped>
-.profile-page {
-  min-height: 100vh;
-  background: #141414;
-  color: white;
+.page { min-height: 100vh; background: #0d1f13; }
+.main { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+.auth-required { text-align: center; padding: 4rem; }
+.auth-required p { color: #a5d6a7; margin-bottom: 1rem; font-size: 1.1rem; }
+
+.btn-accent {
+  background: #4caf50; color: #fff;
+  padding: 0.55rem 1.5rem; border-radius: 6px;
+  font-weight: 600; font-size: 0.95rem;
 }
-
-.navbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 50px;
-  background: rgba(0,0,0,0.9);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.nav-left {
-  display: flex;
-  align-items: center;
-  gap: 40px;
-}
-
-.logo {
-  font-size: 34px;
-  font-weight: 900;
-  color: #e50914;
-  cursor: pointer;
-}
-
-.nav-links a {
-  color: #ddd;
-  text-decoration: none;
-  font-size: 15.5px;
-  margin-right: 25px;
-}
-
-.nav-links .active {
-  color: white;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.user-menu {
-  position: relative;
-  cursor: pointer;
-}
-
-.user-icon {
-  width: 40px;
-  height: 40px;
-  background: #e50914;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: bold;
-  color: white;
-}
-
-.user-dropdown {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  background: #141414;
-  border-radius: 8px;
-  padding: 10px;
-  min-width: 200px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-  z-index: 100;
-}
-
-.user-info {
-  padding: 10px;
-}
-
-.user-email {
-  color: white;
-  font-size: 14px;
-  margin-bottom: 10px;
-  word-break: break-all;
-}
-
-.logout-btn {
-  width: 100%;
-  padding: 8px;
-  background: #e50914;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-@media (max-width: 768px) {
-  .navbar {
-    padding: 15px 20px;
-  }
-
-  .logo {
-    font-size: 24px;
-  }
-
-  .nav-links a {
-    font-size: 12px;
-    margin-right: 15px;
-  }
-}
+.btn-accent:hover { background: #43a047; }
 </style>

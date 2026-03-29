@@ -1,20 +1,19 @@
-<script setup>
-import { RouterView } from 'vue-router'
-import { onMounted } from 'vue'
-import { auth } from './firebase/config'
-import { onAuthStateChanged } from 'firebase/auth'
-
-onMounted(() => {
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      console.log('Пользователь вошел:', user.email)
-    } else {
-      console.log('Пользователь не авторизован')
-    }
-  })
-})
-</script>
-
 <template>
   <RouterView />
 </template>
+
+<script setup>
+import { onMounted } from 'vue'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from './firebase/config'
+
+onMounted(() => {
+  onAuthStateChanged(auth, () => {})
+})
+</script>
+
+<style>
+#app {
+  min-height: 100vh;
+}
+</style>

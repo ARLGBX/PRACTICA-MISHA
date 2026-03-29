@@ -1,67 +1,57 @@
 <template>
-  <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-    <div class="modal-content">
-      <button class="close-btn" @click="closeModal">✕</button>
-
-      <div class="auth-tabs">
-        <button
-            :class="['tab', { active: activeTab === 'login' }]"
-            @click="activeTab = 'login'"
-        >
-          Вход
-        </button>
-        <button
-            :class="['tab', { active: activeTab === 'register' }]"
-            @click="activeTab = 'register'"
-        >
-          Регистрация
-        </button>
+  <div class="modal-overlay" @click.self="$emit('close')">
+    <div class="modal">
+      <button class="modal-close" @click="$emit('close')">✕</button>
+      <div class="modal-header">
+        <h2>🐾 Зоопитомник</h2>
       </div>
 
-      <form @submit.prevent="handleSubmit" class="auth-form">
-        <div class="form-group">
-          <input
-              type="email"
-              v-model="email"
-              placeholder="Email"
-              required
-              class="auth-input"
-          />
-        </div>
+      <div class="tabs">
+        <button :class="['tab', { active: tab === 'login' }]" @click="tab = 'login'; error = ''">Войти</button>
+        <button :class="['tab', { active: tab === 'register' }]" @click="tab = 'register'; error = ''">Регистрация</button>
+      </div>
+
+      <form @submit.prevent="handleSubmit" class="form">
+        <div v-if="error" class="error-msg">{{ error }}</div>
+        <div v-if="success" class="success-msg">{{ success }}</div>
 
         <div class="form-group">
-          <input
-              type="password"
-              v-model="password"
-              placeholder="Пароль"
-              required
-              class="auth-input"
-          />
+          <label>Email</label>
+          <input v-model="email" type="email" placeholder="your@email.com" required />
         </div>
 
-        <div v-if="activeTab === 'register'" class="form-group">
-          <input
-              type="password"
-              v-model="confirmPassword"
-              placeholder="Подтвердите пароль"
-              required
-              class="auth-input"
-          />
+        <div class="form-group" v-if="tab !== 'forgot'">
+          <label>Пароль</label>
+          <input v-model="password" type="password" placeholder="Пароль" required />
         </div>
 
-        <button type="submit" class="submit-btn" :disabled="loading">
-          {{ loading ? 'Загрузка...' : (activeTab === 'login' ? 'Войти' : 'Зарегистрироваться') }}
+        <div class="form-group" v-if="tab === 'register'">
+          <label>Имя</label>
+          <input v-model="displayName" type="text" placeholder="Ваше имя" required />
+        </div>
+
+        <button type="submit" class="btn-submit" :disabled="loading">
+          <span v-if="loading">Загрузка...</span>
+          <span v-else-if="tab === 'login'">Войти</span>
+          <span v-else-if="tab === 'register'">Зарегистрироваться</span>
+          <span v-else>Отправить письмо</span>
         </button>
 
-        <div v-if="error" class="error-message">
-          {{ error }}
+        <div class="form-links">
+          <span v-if="tab === 'login'">
+            <a href="#" @click.prevent="tab = 'forgot'; error = ''; success = ''">Забыли пароль?</a>
+          </span>
+          <span v-if="tab === 'forgot'">
+            <a href="#" @click.prevent="tab = 'login'; error = ''; success = ''">← Назад</a>
+          </span>
         </div>
       </form>
 
-      <div class="auth-divider">или</div>
+      <div class="divider"><span>или</span></div>
 
-      <button @click="signInWithGoogle" class="google-btn" :disabled="loading">
-        <span>G</span> Войти через Google
+      <button class="btn-google" @click="handleGoogle" :disabled="loading">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.1 0 5.9 1.1 8.1 2.9l6-6C34.5 3.2 29.6 1 24 1 14.7 1 6.8 6.7 3.4 14.9l7 5.4C12.2 13.7 17.6 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.4 5.7c4.3-4 6.2-9.9 6.2-16.9z"/><path fill="#FBBC05" d="M10.4 28.6A14.8 14.8 0 0 1 9.5 24c0-1.6.3-3.2.9-4.6l-7-5.4A23.9 23.9 0 0 0 0 24c0 3.9.9 7.6 2.6 10.8l7.8-6.2z"/><path fill="#34A853" d="M24 47c5.6 0 10.3-1.8 13.7-5l-7.4-5.7c-1.9 1.3-4.3 2-6.3 2-6.4 0-11.8-4.3-13.6-10.1l-7.8 6.2C6.7 41.2 14.7 47 24 47z"/></svg>
+        Войти через Google
       </button>
     </div>
   </div>
@@ -73,285 +63,215 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signInWithPopup,
-  GoogleAuthProvider
+  GoogleAuthProvider,
+  sendPasswordResetEmail,
+  updateProfile,
 } from 'firebase/auth'
-import { auth } from '../firebase/config'
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore'
-import { db } from '../firebase/config'
+import { auth, db } from '../firebase/config'
 
-const props = defineProps({
-  showModal: Boolean
-})
+const emit = defineEmits(['close'])
 
-const emit = defineEmits(['close', 'success'])
-
-const activeTab = ref('login')
+const tab = ref('login')
 const email = ref('')
 const password = ref('')
-const confirmPassword = ref('')
+const displayName = ref('')
 const loading = ref(false)
 const error = ref('')
+const success = ref('')
 
-const closeModal = () => {
-  emit('close')
-  resetForm()
-}
-
-const resetForm = () => {
-  email.value = ''
-  password.value = ''
-  confirmPassword.value = ''
+async function handleSubmit() {
   error.value = ''
-}
-
-const handleSubmit = async () => {
-  error.value = ''
-
-  if (activeTab.value === 'register' && password.value !== confirmPassword.value) {
-    error.value = 'Пароли не совпадают'
-    return
-  }
-
+  success.value = ''
   loading.value = true
-
   try {
-    let userCredential;
-    if (activeTab.value === 'login') {
-      userCredential = await signInWithEmailAndPassword(auth, email.value, password.value)
-    } else {
-      userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value)
-      
-      await setDoc(doc(db, 'userData', userCredential.user.uid), {
-        email: email.value,
-        createdAt: serverTimestamp()
+    if (tab.value === 'login') {
+      await signInWithEmailAndPassword(auth, email.value, password.value)
+      emit('close')
+    } else if (tab.value === 'register') {
+      const cred = await createUserWithEmailAndPassword(auth, email.value, password.value)
+      await updateProfile(cred.user, { displayName: displayName.value })
+      await setDoc(doc(db, 'userData', cred.user.uid), {
+        uid: cred.user.uid,
+        email: cred.user.email,
+        displayName: displayName.value,
+        role: 'user',
+        phone: '',
+        bio: '',
+        createdAt: serverTimestamp(),
       })
+      emit('close')
+    } else {
+      await sendPasswordResetEmail(auth, email.value)
+      success.value = 'Письмо для сброса пароля отправлено!'
     }
-
-    emit('success')
-    closeModal()
-  } catch (err) {
-    switch (err.code) {
-      case 'auth/user-not-found':
-        error.value = 'Пользователь не найден'
-        break
-      case 'auth/wrong-password':
-        error.value = 'Неверный пароль'
-        break
-      case 'auth/email-already-in-use':
-        error.value = 'Email уже используется'
-        break
-      case 'auth/weak-password':
-        error.value = 'Пароль должен содержать минимум 6 символов'
-        break
-      default:
-        error.value = 'Ошибка авторизации. Попробуйте позже.'
-        console.error(err)
-    }
+  } catch (e) {
+    error.value = getErrorMessage(e.code)
   } finally {
     loading.value = false
   }
-
-  
-  if (activeTab.value === 'register') {
-    userCredential = await createUserWithEmailAndPassword(auth, email.value, password.value)
-    
-    await setDoc(doc(db, 'userData', userCredential.user.uid), {
-      email: email.value,
-      displayName: '',
-      role: 'user',  
-      createdAt: serverTimestamp()
-    })
-  }
-
 }
 
-const signInWithGoogle = async () => {
-  loading.value = true
+async function handleGoogle() {
   error.value = ''
-
+  loading.value = true
   try {
     const provider = new GoogleAuthProvider()
-    const userCredential = await signInWithPopup(auth, provider)
-
-    
-    await setDoc(doc(db, 'userData', userCredential.user.uid), {
-      email: userCredential.user.email,
-      displayName: userCredential.user.displayName,
-      createdAt: serverTimestamp()
+    const cred = await signInWithPopup(auth, provider)
+    await setDoc(doc(db, 'userData', cred.user.uid), {
+      uid: cred.user.uid,
+      email: cred.user.email,
+      displayName: cred.user.displayName || '',
+      role: 'user',
+      phone: '',
+      bio: '',
+      createdAt: serverTimestamp(),
     }, { merge: true })
-
-    emit('success')
-    closeModal()
-  } catch (err) {
-    error.value = 'Ошибка входа через Google'
-    console.error(err)
+    emit('close')
+  } catch (e) {
+    error.value = getErrorMessage(e.code)
   } finally {
     loading.value = false
   }
+}
+
+function getErrorMessage(code) {
+  const messages = {
+    'auth/user-not-found': 'Пользователь не найден',
+    'auth/wrong-password': 'Неверный пароль',
+    'auth/email-already-in-use': 'Email уже используется',
+    'auth/invalid-email': 'Некорректный email',
+    'auth/weak-password': 'Пароль слишком слабый (минимум 6 символов)',
+    'auth/popup-closed-by-user': 'Окно входа закрыто',
+    'auth/invalid-credential': 'Неверные данные для входа',
+  }
+  return messages[code] || 'Произошла ошибка. Попробуйте снова.'
 }
 </script>
 
 <style scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 1rem;
 }
 
-.modal-content {
-  background: #141414;
+.modal {
+  background: #1a3d2b;
+  border: 1px solid #2d7a4f;
   border-radius: 12px;
-  padding: 40px;
-  width: 90%;
-  max-width: 450px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
   position: relative;
-  color: white;
 }
 
-.close-btn {
+.modal-close {
   position: absolute;
-  top: 20px;
-  right: 20px;
+  top: 1rem;
+  right: 1rem;
   background: none;
-  border: none;
-  color: white;
-  font-size: 24px;
-  cursor: pointer;
+  color: #a5d6a7;
+  font-size: 1.2rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
 }
+.modal-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
 
-.auth-tabs {
+.modal-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.modal-header h2 { color: #4caf50; font-size: 1.5rem; }
+
+.tabs {
   display: flex;
-  gap: 20px;
-  margin-bottom: 30px;
-  border-bottom: 1px solid #333;
+  margin-bottom: 1.5rem;
+  background: #0d1f13;
+  border-radius: 8px;
+  padding: 4px;
 }
-
 .tab {
+  flex: 1;
+  padding: 0.5rem;
   background: none;
-  border: none;
-  color: #aaa;
-  font-size: 18px;
-  padding: 10px 0;
-  cursor: pointer;
-  transition: all 0.3s;
+  color: #a5d6a7;
+  border-radius: 6px;
+  font-size: 0.95rem;
 }
+.tab.active { background: #4caf50; color: #fff; }
 
-.tab.active {
-  color: #e50914;
-  border-bottom: 2px solid #e50914;
+.form { display: flex; flex-direction: column; gap: 1rem; }
+
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-group label { font-size: 0.9rem; color: #a5d6a7; }
+.form-group input { width: 100%; }
+
+.btn-submit {
+  background: #4caf50;
+  color: #fff;
+  padding: 0.7rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
 }
+.btn-submit:hover:not(:disabled) { background: #43a047; }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.auth-form {
+.form-links { text-align: center; font-size: 0.9rem; }
+.form-links a { color: #4caf50; }
+
+.divider {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0;
+  color: #6a9a72;
+  font-size: 0.85rem;
 }
-
-.form-group {
-  width: 100%;
-}
-
-.auth-input {
-  width: 100%;
-  padding: 12px;
-  background: #333;
-  border: none;
-  border-radius: 4px;
-  color: white;
-  font-size: 16px;
-}
-
-.auth-input:focus {
-  outline: none;
-  background: #444;
-}
-
-.submit-btn {
-  background: #e50914;
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  background: #f40612;
-}
-
-.submit-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.error-message {
-  color: #e50914;
-  text-align: center;
-  font-size: 14px;
-  margin-top: 10px;
-}
-
-.auth-divider {
-  text-align: center;
-  color: #666;
-  margin: 20px 0;
-  position: relative;
-}
-
-.auth-divider::before,
-.auth-divider::after {
+.divider::before, .divider::after {
   content: '';
-  position: absolute;
-  top: 50%;
-  width: 40%;
+  flex: 1;
   height: 1px;
-  background: #333;
+  background: #2d7a4f;
 }
 
-.auth-divider::before {
-  left: 0;
-}
-
-.auth-divider::after {
-  right: 0;
-}
-
-.google-btn {
+.btn-google {
   width: 100%;
-  padding: 12px;
-  background: white;
-  color: #333;
-  border: none;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  transition: background 0.3s;
+  gap: 0.75rem;
+  padding: 0.7rem;
+  background: #fff;
+  color: #333;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
+.btn-google:hover:not(:disabled) { background: #f5f5f5; }
+.btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.google-btn:hover:not(:disabled) {
-  background: #f5f5f5;
+.error-msg {
+  background: rgba(239,83,80,0.15);
+  border: 1px solid #ef5350;
+  color: #ef9a9a;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
-
-.google-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.google-btn span {
-  font-weight: bold;
-  font-size: 18px;
+.success-msg {
+  background: rgba(76,175,80,0.15);
+  border: 1px solid #4caf50;
+  color: #a5d6a7;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
 }
 </style>

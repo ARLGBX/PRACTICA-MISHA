@@ -1,152 +1,91 @@
 <template>
-  <div class="profile-content">
-    <div class="profile-sidebar">
-      <div class="user-avatar">
-        <div class="avatar-circle">
-          {{ user?.email?.[0]?.toUpperCase() || 'U' }}
-        </div>
-        <h3>{{ editProfile.displayName || user?.email?.split('@')[0] || 'Пользователь' }}</h3>
-        <p class="user-email">{{ user?.email }}</p>
-      </div>
+  <div class="profile-wrap">
+    <h1>Личный кабинет</h1>
 
-      <div class="profile-nav">
-        <button
-            v-for="tab in tabs"
-            :key="tab.id"
-            :class="['nav-btn', { active: activeTab === tab.id }]"
-            @click="activeTab = tab.id"
-        >
-          <span class="nav-icon">{{ tab.icon }}</span>
-          <span>{{ tab.name }}</span>
+    <div class="tabs">
+      <button :class="['tab', { active: tab === 'profile' }]" @click="tab = 'profile'">Профиль</button>
+      <button :class="['tab', { active: tab === 'reviews' }]" @click="tab = 'reviews'">Мои отзывы</button>
+      <button :class="['tab', { active: tab === 'stats' }]" @click="tab = 'stats'">Статистика</button>
+    </div>
+
+    <!-- Profile tab -->
+    <div v-if="tab === 'profile'" class="tab-content">
+      <div v-if="saveSuccess" class="success-msg">✓ Профиль обновлён</div>
+      <div v-if="saveError" class="error-msg">{{ saveError }}</div>
+      <form @submit.prevent="saveProfile" class="form">
+        <div class="form-group">
+          <label>Email</label>
+          <input :value="currentUser.email" disabled />
+        </div>
+        <div class="form-group">
+          <label>Имя</label>
+          <input v-model="formName" type="text" placeholder="Ваше имя" />
+        </div>
+        <div class="form-group">
+          <label>Телефон</label>
+          <input v-model="formPhone" type="tel" placeholder="+7 (___) ___-__-__" />
+        </div>
+        <div class="form-group">
+          <label>О себе</label>
+          <textarea v-model="formBio" rows="4" placeholder="Расскажите о себе..."></textarea>
+        </div>
+        <button type="submit" class="btn-accent" :disabled="saving">
+          {{ saving ? 'Сохранение...' : 'Сохранить' }}
         </button>
+      </form>
+    </div>
+
+    <!-- Reviews tab -->
+    <div v-if="tab === 'reviews'" class="tab-content">
+      <div v-if="reviewsLoading" class="loading"><div class="spinner"></div></div>
+      <div v-else-if="userReviews.length === 0" class="empty">Вы ещё не оставляли отзывов</div>
+      <div v-for="review in userReviews" :key="review.id" class="review-card">
+        <div class="review-header">
+          <router-link :to="'/animal/' + review.animalId" class="animal-link">{{ review.animalName }}</router-link>
+          <span class="review-stars">{{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}</span>
+          <span class="review-date">{{ formatDate(review.createdAt) }}</span>
+        </div>
+        <p class="review-text" v-if="editingId !== review.id">{{ review.text }}</p>
+        <div v-if="editingId === review.id" class="edit-review">
+          <div class="star-input">
+            <button v-for="s in 5" :key="s" type="button" :class="['star-btn', { active: s <= editRating }]" @click="editRating = s">★</button>
+          </div>
+          <textarea v-model="editText" rows="3"></textarea>
+          <div class="edit-btns">
+            <button class="btn-accent sm" @click="saveEdit(review.id)">Сохранить</button>
+            <button class="btn-outline sm" @click="editingId = null">Отмена</button>
+          </div>
+        </div>
+        <div class="review-actions">
+          <button class="btn-outline sm" @click="startEdit(review)">Изменить</button>
+          <button class="btn-danger sm" @click="deleteReview(review.id, review.animalId)">Удалить</button>
+        </div>
       </div>
     </div>
 
-    <div class="profile-main">
-      <!-- Вкладка профиля -->
-      <div v-if="activeTab === 'profile'" class="tab-content">
-        <h2>Редактировать профиль</h2>
-        <form @submit.prevent="updateProfile" class="profile-form">
-          <div class="form-group">
-            <label>Имя пользователя</label>
-            <input
-                type="text"
-                v-model="editProfile.displayName"
-                placeholder="Ваше имя"
-                class="form-input"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Email</label>
-            <input
-                type="email"
-                v-model="editProfile.email"
-                disabled
-                class="form-input disabled"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Дата рождения</label>
-            <input
-                type="date"
-                v-model="editProfile.birthDate"
-                class="form-input"
-            />
-          </div>
-
-          <div class="form-group">
-            <label>Любимые жанры</label>
-            <div class="genres-checkbox">
-              <label v-for="genre in genres" :key="genre" class="genre-checkbox">
-                <input
-                    type="checkbox"
-                    :value="genre"
-                    v-model="editProfile.favoriteGenres"
-                />
-                {{ genre }}
-              </label>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label>О себе</label>
-            <textarea
-                v-model="editProfile.bio"
-                rows="4"
-                placeholder="Расскажите о себе..."
-                class="form-input"
-            ></textarea>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit" class="btn-primary" :disabled="saving">
-              {{ saving ? 'Сохранение...' : 'Сохранить изменения' }}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      <!-- Вкладка отзывов -->
-      <div v-if="activeTab === 'reviews'" class="tab-content">
-        <h2>Мои отзывы</h2>
-
-        <div v-if="loadingReviews" class="loading">Загрузка...</div>
-        <div v-else-if="userReviews.length === 0" class="empty-state">
-          <p>У вас пока нет отзывов</p>
+    <!-- Stats tab -->
+    <div v-if="tab === 'stats'" class="tab-content">
+      <div v-if="statsLoading" class="loading"><div class="spinner"></div></div>
+      <div v-else class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.totalReviews }}</div>
+          <div class="stat-label">Отзывов</div>
         </div>
-
-        <div v-else class="reviews-list">
-          <div v-for="review in userReviews" :key="review.id" class="review-card">
-            <div class="review-header">
-              <div class="movie-info">
-                <div>
-                  <h4>{{ review.movieTitle || 'Фильм' }}</h4>
-                  <div class="review-date">{{ formatDate(review.createdAt) }}</div>
-                </div>
-              </div>
-              <div class="review-actions">
-                <button @click="editReview(review)" class="icon-btn edit">✏️</button>
-                <button @click="deleteReview(review.id)" class="icon-btn delete">🗑️</button>
-              </div>
-            </div>
-            <p class="review-text">{{ review.text }}</p>
-            <div class="review-likes">
-              👍 {{ review.likes || 0 }}
-            </div>
-          </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.avgRating || '—' }}</div>
+          <div class="stat-label">Средний рейтинг</div>
         </div>
-      </div>
-
-      <!-- Вкладка статистики -->
-      <div v-if="activeTab === 'stats'" class="tab-content">
-        <h2>Моя статистика</h2>
-
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-value">{{ stats.totalReviews }}</div>
-            <div class="stat-label">Отзывов написано</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-value">{{ stats.totalRatings }}</div>
-            <div class="stat-label">Фильмов оценено</div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-value">{{ stats.averageRating || 0 }}</div>
-            <div class="stat-label">Средняя оценка</div>
-          </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.totalBookings }}</div>
+          <div class="stat-label">Бронирований</div>
         </div>
-
-        <div class="favorite-genres" v-if="stats.favoriteGenres.length > 0">
-          <h3>Любимые жанры</h3>
-          <div class="genres-tags">
-            <span v-for="genre in stats.favoriteGenres" :key="genre" class="genre-tag">
-              {{ genre }}
-            </span>
-          </div>
+        <div class="stat-card">
+          <div class="stat-value">{{ stats.completedBookings }}</div>
+          <div class="stat-label">Завершённых</div>
+        </div>
+        <div class="stat-card wide">
+          <div class="stat-label">Любимая категория</div>
+          <div class="stat-value">{{ stats.favoriteCategory || '—' }}</div>
         </div>
       </div>
     </div>
@@ -154,549 +93,257 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import {
-  doc, getDoc, setDoc, updateDoc, collection,
-  query, where, getDocs, deleteDoc,
-  orderBy, serverTimestamp
+  doc, getDoc, setDoc, collection, query, where,
+  onSnapshot, updateDoc, deleteDoc, getDocs, serverTimestamp
 } from 'firebase/firestore'
-import { db } from '../firebase/config'
-import { updateProfile as updateFirebaseProfile } from 'firebase/auth'
+import { updateProfile } from 'firebase/auth'
+import { db, auth } from '../firebase/config'
 
-const props = defineProps({
-  user: {
-    type: Object,
-    default: null
-  }
-})
+const props = defineProps({ currentUser: Object })
 
-const activeTab = ref('profile')
+const tab = ref('profile')
+const formName = ref('')
+const formPhone = ref('')
+const formBio = ref('')
 const saving = ref(false)
-const loadingReviews = ref(false)
-
-const tabs = [
-  { id: 'profile', name: 'Профиль', icon: '👤' },
-  { id: 'reviews', name: 'Мои отзывы', icon: '💬' },
-  { id: 'stats', name: 'Статистика', icon: '📊' }
-]
-
-const genres = ['Боевик', 'Комедия', 'Драма', 'Фантастика', 'Ужасы', 'Триллер', 'Мелодрама', 'Документальный']
-
-
-const editProfile = ref({
-  displayName: '',
-  email: '',
-  birthDate: '',
-  favoriteGenres: [],
-  bio: ''
-})
-
+const saveSuccess = ref(false)
+const saveError = ref('')
 
 const userReviews = ref([])
+const reviewsLoading = ref(true)
+const editingId = ref(null)
+const editRating = ref(0)
+const editText = ref('')
 
+const stats = ref({ totalReviews: 0, avgRating: null, totalBookings: 0, completedBookings: 0, favoriteCategory: null })
+const statsLoading = ref(true)
 
-const stats = ref({
-  totalReviews: 0,
-  totalRatings: 0,
-  averageRating: 0,
-  favoriteGenres: []
+let unsubReviews = null
+
+onMounted(() => {
+  loadUserData()
+  subscribeReviews()
+  loadStats()
 })
 
+onUnmounted(() => {
+  if (unsubReviews) unsubReviews()
+})
 
-const formatDate = (timestamp) => {
-  if (!timestamp) return 'Недавно'
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-  return date.toLocaleDateString('ru-RU')
-}
-
-
-const loadProfile = async () => {
-  if (!props.user) return
-
-  try {
-    const userDataRef = doc(db, 'userData', props.user.uid)
-    const userDataDoc = await getDoc(userDataRef)
-
-    if (userDataDoc.exists()) {
-      const data = userDataDoc.data()
-      editProfile.value = {
-        displayName: data.displayName || props.user.displayName || '',
-        email: props.user.email || '',
-        birthDate: data.birthDate || '',
-        favoriteGenres: data.favoriteGenres || [],
-        bio: data.bio || ''
-      }
-    } else {
-      editProfile.value = {
-        displayName: props.user.displayName || '',
-        email: props.user.email || '',
-        birthDate: '',
-        favoriteGenres: [],
-        bio: ''
-      }
-    }
-  } catch (error) {
-    console.error('Ошибка загрузки профиля:', error)
+async function loadUserData() {
+  if (!props.currentUser) return
+  const snap = await getDoc(doc(db, 'userData', props.currentUser.uid))
+  if (snap.exists()) {
+    const d = snap.data()
+    formName.value = d.displayName || props.currentUser.displayName || ''
+    formPhone.value = d.phone || ''
+    formBio.value = d.bio || ''
+  } else {
+    formName.value = props.currentUser.displayName || ''
   }
 }
 
-
-const updateProfile = async () => {
-  if (!props.user) {
-    alert('Ошибка: пользователь не авторизован')
-    return
-  }
-
+async function saveProfile() {
   saving.value = true
+  saveError.value = ''
+  saveSuccess.value = false
   try {
-    const userDataRef = doc(db, 'userData', props.user.uid)
-    await setDoc(userDataRef, {
-      displayName: editProfile.value.displayName,
-      birthDate: editProfile.value.birthDate,
-      favoriteGenres: editProfile.value.favoriteGenres,
-      bio: editProfile.value.bio,
-      updatedAt: serverTimestamp()
+    await setDoc(doc(db, 'userData', props.currentUser.uid), {
+      uid: props.currentUser.uid,
+      email: props.currentUser.email,
+      displayName: formName.value,
+      phone: formPhone.value,
+      bio: formBio.value,
+      role: 'user',
     }, { merge: true })
-
-    if (editProfile.value.displayName && editProfile.value.displayName !== props.user.displayName) {
-      await updateFirebaseProfile(props.user, {
-        displayName: editProfile.value.displayName
-      })
+    if (formName.value) {
+      await updateProfile(auth.currentUser, { displayName: formName.value })
     }
-
-    alert('Профиль успешно обновлен!')
-  } catch (error) {
-    console.error('Ошибка обновления профиля:', error)
-    alert('Ошибка при обновлении профиля: ' + error.message)
+    saveSuccess.value = true
+    setTimeout(() => { saveSuccess.value = false }, 3000)
+  } catch (e) {
+    saveError.value = 'Ошибка при сохранении'
   } finally {
     saving.value = false
   }
 }
 
-
-const loadUserReviews = async () => {
-  if (!props.user) return
-
-  loadingReviews.value = true
-  try {
-    const reviewsQuery = query(
-        collection(db, 'reviews'),
-        where('userId', '==', props.user.uid),
-        orderBy('createdAt', 'desc')
-    )
-
-    const snapshot = await getDocs(reviewsQuery)
-    userReviews.value = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
-
-    stats.value.totalReviews = userReviews.value.length
-  } catch (error) {
-    console.error('Ошибка загрузки отзывов:', error)
-  } finally {
-    loadingReviews.value = false
-  }
+function subscribeReviews() {
+  if (!props.currentUser) return
+  const q = query(collection(db, 'reviews'), where('userId', '==', props.currentUser.uid))
+  unsubReviews = onSnapshot(q, snap => {
+    userReviews.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    reviewsLoading.value = false
+  })
 }
 
-
-const loadUserRatings = async () => {
-  if (!props.user) return
-
-  try {
-    const ratingsQuery = query(
-        collection(db, 'userRatings'),
-        where('userId', '==', props.user.uid)
-    )
-
-    const snapshot = await getDocs(ratingsQuery)
-    const ratings = snapshot.docs.map(doc => doc.data().rating)
-
-    stats.value.totalRatings = ratings.length
-    if (ratings.length > 0) {
-      const sum = ratings.reduce((a, b) => a + b, 0)
-      stats.value.averageRating = (sum / ratings.length).toFixed(1)
-    }
-
-    const genreCount = {}
-    userReviews.value.forEach(review => {
-      if (review.movieGenres && Array.isArray(review.movieGenres)) {
-        review.movieGenres.forEach(genre => {
-          genreCount[genre] = (genreCount[genre] || 0) + 1
-        })
-      }
-    })
-
-    const sortedGenres = Object.entries(genreCount)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(g => g[0])
-
-    stats.value.favoriteGenres = sortedGenres
-  } catch (error) {
-    console.error('Ошибка загрузки оценок:', error)
-  }
+function startEdit(review) {
+  editingId.value = review.id
+  editRating.value = review.rating
+  editText.value = review.text
 }
 
-
-const deleteReview = async (reviewId) => {
-  if (!confirm('Вы уверены, что хотите удалить этот отзыв?')) return
-
-  try {
-    await deleteDoc(doc(db, 'reviews', reviewId))
-    userReviews.value = userReviews.value.filter(r => r.id !== reviewId)
-    stats.value.totalReviews = userReviews.value.length
-    alert('Отзыв удален')
-  } catch (error) {
-    console.error('Ошибка при удалении отзыва:', error)
-    alert('Ошибка при удалении отзыва')
-  }
+async function saveEdit(id) {
+  await updateDoc(doc(db, 'reviews', id), { rating: editRating.value, text: editText.value })
+  editingId.value = null
 }
 
-
-const editReview = (review) => {
-  const newText = prompt('Редактировать отзыв:', review.text)
-  if (newText && newText.trim()) {
-    updateDoc(doc(db, 'reviews', review.id), {
-      text: newText.trim(),
-      updatedAt: serverTimestamp()
-    }).then(() => {
-      review.text = newText.trim()
-      alert('Отзыв обновлен')
-    }).catch(error => console.error('Ошибка:', error))
-  }
+async function deleteReview(id, animalId) {
+  if (!confirm('Удалить отзыв?')) return
+  await deleteDoc(doc(db, 'reviews', id))
+  await updateAnimalRating(animalId)
 }
 
-watch(() => props.user, (newUser) => {
-  if (newUser) {
-    loadProfile()
-    loadUserReviews()
-    loadUserRatings()
-  }
-})
+async function updateAnimalRating(animalId) {
+  const q = query(collection(db, 'reviews'), where('animalId', '==', animalId))
+  const snap = await getDocs(q)
+  const all = snap.docs.map(d => d.data())
+  const avg = all.length ? all.reduce((s, r) => s + (r.rating || 0), 0) / all.length : 0
+  await updateDoc(doc(db, 'animals', animalId), {
+    rating: Math.round(avg * 10) / 10,
+    reviewsCount: all.length,
+  })
+}
 
-onMounted(() => {
-  if (props.user) {
-    loadProfile()
-    loadUserReviews()
-    loadUserRatings()
+async function loadStats() {
+  if (!props.currentUser) return
+  statsLoading.value = true
+  const [revSnap, bookSnap] = await Promise.all([
+    getDocs(query(collection(db, 'reviews'), where('userId', '==', props.currentUser.uid))),
+    getDocs(query(collection(db, 'bookings'), where('userId', '==', props.currentUser.uid))),
+  ])
+  const revs = revSnap.docs.map(d => d.data())
+  const books = bookSnap.docs.map(d => d.data())
+  const avg = revs.length ? revs.reduce((s, r) => s + r.rating, 0) / revs.length : null
+  const completed = books.filter(b => b.status === 'completed').length
+
+  const catCount = {}
+  books.forEach(b => {
+    if (b.animalCategory) catCount[b.animalCategory] = (catCount[b.animalCategory] || 0) + 1
+  })
+  const favCat = Object.keys(catCount).sort((a, b) => catCount[b] - catCount[a])[0] || null
+
+  stats.value = {
+    totalReviews: revs.length,
+    avgRating: avg ? avg.toFixed(1) : null,
+    totalBookings: books.length,
+    completedBookings: completed,
+    favoriteCategory: favCat,
   }
-})
+  statsLoading.value = false
+}
+
+function formatDate(ts) {
+  if (!ts) return ''
+  const d = ts.toDate ? ts.toDate() : new Date(ts)
+  return d.toLocaleDateString('ru-RU')
+}
 </script>
 
 <style scoped>
-.profile-content {
+.profile-wrap { padding-bottom: 2rem; }
+
+h1 { font-size: 1.8rem; margin-bottom: 2rem; }
+
+.tabs {
   display: flex;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 40px;
-  gap: 40px;
-  min-height: calc(100vh - 80px);
+  border-bottom: 2px solid #2d7a4f;
+  margin-bottom: 2rem;
 }
-
-.profile-sidebar {
-  width: 300px;
-  background: #1a1a1a;
-  border-radius: 12px;
-  padding: 30px;
-  height: fit-content;
-  position: sticky;
-  top: 100px;
-}
-
-.user-avatar {
-  text-align: center;
-  margin-bottom: 30px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #333;
-}
-
-.avatar-circle {
-  width: 100px;
-  height: 100px;
-  background: #e50914;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 40px;
-  font-weight: bold;
-  margin: 0 auto 15px;
-  color: white;
-}
-
-.user-avatar h3 {
-  margin: 10px 0 5px;
-  font-size: 18px;
-  color: white;
-}
-
-.user-avatar .user-email {
-  color: #aaa;
-  font-size: 12px;
-  margin-top: 5px;
-  word-break: break-all;
-}
-
-.profile-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.nav-btn {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+.tab {
+  padding: 0.65rem 1.5rem;
   background: none;
-  border: none;
-  color: #aaa;
-  font-size: 15px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.3s;
-  width: 100%;
-  text-align: left;
+  color: #a5d6a7;
+  font-size: 0.95rem;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
 }
+.tab.active { color: #4caf50; border-bottom-color: #4caf50; }
 
-.nav-btn:hover {
-  background: #333;
-  color: white;
-}
+.tab-content { max-width: 600px; }
 
-.nav-btn.active {
-  background: #e50914;
-  color: white;
-}
+.form { display: flex; flex-direction: column; gap: 1.25rem; }
+.form-group { display: flex; flex-direction: column; gap: 0.4rem; }
+.form-group label { font-size: 0.88rem; color: #a5d6a7; }
+.form-group input, .form-group textarea { width: 100%; }
+.form-group input:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.nav-icon {
-  font-size: 20px;
+.btn-accent {
+  background: #4caf50; color: #fff;
+  padding: 0.55rem 1.5rem; border-radius: 6px;
+  font-weight: 600; font-size: 0.95rem; width: fit-content;
 }
+.btn-accent:hover:not(:disabled) { background: #43a047; }
+.btn-accent:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-accent.sm { padding: 0.35rem 0.9rem; font-size: 0.85rem; }
 
-.profile-main {
-  flex: 1;
+.btn-outline {
+  background: transparent; border: 1px solid #2d7a4f;
+  color: #a5d6a7; padding: 0.55rem 1.5rem; border-radius: 6px;
+  font-size: 0.95rem; width: fit-content;
 }
+.btn-outline.sm { padding: 0.35rem 0.9rem; font-size: 0.85rem; }
+.btn-outline:hover { border-color: #4caf50; color: #4caf50; }
 
-.tab-content h2 {
-  font-size: 28px;
-  margin-bottom: 30px;
-  color: white;
+.btn-danger {
+  background: rgba(239,83,80,0.15); border: 1px solid #ef5350;
+  color: #ef9a9a; padding: 0.55rem 1.5rem; border-radius: 6px;
+  font-size: 0.95rem; width: fit-content;
 }
+.btn-danger.sm { padding: 0.35rem 0.9rem; font-size: 0.85rem; }
+.btn-danger:hover { background: rgba(239,83,80,0.3); }
 
-.profile-form {
-  max-width: 600px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: #aaa;
-  font-size: 14px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px;
-  background: #333;
-  border: none;
-  border-radius: 6px;
-  color: white;
-  font-size: 16px;
-}
-
-.form-input.disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-textarea.form-input {
-  resize: vertical;
-  font-family: inherit;
-}
-
-.genres-checkbox {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.genre-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #333;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  color: white;
-}
-
-.genre-checkbox input {
-  cursor: pointer;
-}
-
-.form-actions {
-  margin-top: 30px;
-}
-
-.btn-primary {
-  padding: 12px 24px;
-  background: #e50914;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.3s;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #f40612;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+.loading { text-align: center; padding: 2rem; }
+.empty { color: #6a9a72; font-style: italic; padding: 1rem 0; }
 
 .review-card {
-  background: #1a1a1a;
-  padding: 20px;
-  border-radius: 12px;
-  border-left: 3px solid #e50914;
+  background: #1a3d2b; border: 1px solid #2d7a4f;
+  border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1rem;
 }
-
 .review-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  margin-bottom: 15px;
+  display: flex; align-items: center; gap: 0.75rem;
+  flex-wrap: wrap; margin-bottom: 0.5rem;
 }
+.animal-link { color: #4caf50; font-weight: 600; }
+.review-stars { color: #ffa726; }
+.review-date { color: #6a9a72; font-size: 0.82rem; margin-left: auto; }
+.review-text { color: #a5d6a7; line-height: 1.6; margin-bottom: 0.75rem; }
 
-.movie-info h4 {
-  margin: 0 0 5px 0;
-  font-size: 18px;
-  color: white;
-}
+.edit-review { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.75rem; }
+.edit-review textarea { width: 100%; }
+.edit-btns { display: flex; gap: 0.5rem; }
 
-.review-date {
-  color: #666;
-  font-size: 12px;
-}
+.star-input { display: flex; gap: 0.25rem; }
+.star-btn { background: none; font-size: 1.3rem; color: #6a9a72; padding: 0; }
+.star-btn.active { color: #ffa726; }
+.star-btn:hover { color: #ffa726; }
 
-.review-text {
-  color: #ddd;
-  line-height: 1.6;
-  margin: 10px 0;
-}
-
-.review-likes {
-  color: #aaa;
-  font-size: 13px;
-}
-
-.review-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  padding: 5px 8px;
-  border-radius: 6px;
-  transition: all 0.3s;
-  color: white;
-}
-
-.icon-btn.edit:hover {
-  background: #4a4a4a;
-}
-
-.icon-btn.delete:hover {
-  background: #e50914;
-}
+.review-actions { display: flex; gap: 0.5rem; }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
 }
-
 .stat-card {
-  background: #1a1a1a;
-  padding: 25px;
-  text-align: center;
-  border-radius: 12px;
+  background: #1a3d2b; border: 1px solid #2d7a4f;
+  border-radius: 10px; padding: 1.25rem; text-align: center;
 }
+.stat-card.wide { grid-column: 1 / -1; }
+.stat-value { font-size: 2rem; font-weight: 700; color: #4caf50; }
+.stat-label { color: #a5d6a7; font-size: 0.88rem; margin-top: 0.25rem; }
 
-.stat-value {
-  font-size: 36px;
-  font-weight: bold;
-  color: #e50914;
-  margin-bottom: 10px;
+.success-msg {
+  background: rgba(76,175,80,0.15); border: 1px solid #4caf50;
+  color: #a5d6a7; padding: 0.6rem 1rem; border-radius: 6px;
+  font-size: 0.9rem; margin-bottom: 1rem;
 }
-
-.stat-label {
-  color: #aaa;
-  font-size: 14px;
-}
-
-.favorite-genres h3 {
-  margin-bottom: 15px;
-  font-size: 20px;
-  color: white;
-}
-
-.genres-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.genre-tag {
-  padding: 6px 12px;
-  background: #333;
-  border-radius: 20px;
-  font-size: 14px;
-  color: white;
-}
-
-.loading, .empty-state {
-  text-align: center;
-  padding: 60px;
-  color: #aaa;
-}
-
-@media (max-width: 768px) {
-  .profile-content {
-    flex-direction: column;
-    padding: 20px;
-  }
-
-  .profile-sidebar {
-    width: 100%;
-    position: static;
-    padding: 0;
-  }
-
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+.error-msg {
+  background: rgba(239,83,80,0.15); border: 1px solid #ef5350;
+  color: #ef9a9a; padding: 0.6rem 1rem; border-radius: 6px;
+  font-size: 0.9rem; margin-bottom: 1rem;
 }
 </style>
