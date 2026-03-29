@@ -2,6 +2,8 @@
   <div class="admin-panel">
     <h1>⚙️ Панель управления</h1>
 
+    <div v-if="adminError" class="admin-error-banner">{{ adminError }}</div>
+
     <div class="admin-tabs">
       <button v-for="t in adminTabs" :key="t.value" :class="['atab', { active: activeTab === t.value }]" @click="activeTab = t.value">
         {{ t.label }}
@@ -206,6 +208,8 @@ const bookings = ref([])
 const users = ref([])
 const reviews = ref([])
 
+const adminError = ref('')
+
 const animalCategories = ['Кошки', 'Собаки', 'Птицы', 'Грызуны', 'Рептилии', 'Экзотика']
 const showAnimalForm = ref(false)
 const editingAnimal = ref(null)
@@ -292,17 +296,35 @@ function cancelAnimalForm() {
 
 async function deleteAnimal(id) {
   if (!confirm('Удалить животное?')) return
-  await deleteDoc(doc(db, 'animals', id))
+  adminError.value = ''
+  try {
+    await deleteDoc(doc(db, 'animals', id))
+  } catch (err) {
+    adminError.value = 'Ошибка при удалении животного.'
+    console.error(err)
+  }
 }
 
 async function changeBookingStatus(id, status) {
-  await updateDoc(doc(db, 'bookings', id), { status })
+  adminError.value = ''
+  try {
+    await updateDoc(doc(db, 'bookings', id), { status })
+  } catch (err) {
+    adminError.value = 'Ошибка при изменении статуса бронирования.'
+    console.error(err)
+  }
 }
 
 async function toggleRole(uid, currentRole) {
   const newRole = currentRole === 'admin' ? 'user' : 'admin'
   if (!confirm(`Изменить роль на "${newRole === 'admin' ? 'Администратор' : 'Пользователь'}"?`)) return
-  await updateDoc(doc(db, 'userData', uid), { role: newRole })
+  adminError.value = ''
+  try {
+    await updateDoc(doc(db, 'userData', uid), { role: newRole })
+  } catch (err) {
+    adminError.value = 'Ошибка при изменении роли пользователя.'
+    console.error(err)
+  }
 }
 
 async function deleteReview(id, animalId) {
@@ -325,6 +347,15 @@ async function deleteReview(id, animalId) {
 .admin-panel { padding-bottom: 3rem; }
 h1 { font-size: 1.8rem; margin-bottom: 1.5rem; }
 h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+
+.admin-error-banner {
+  background: #b71c1c;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+}
 
 .admin-tabs {
   display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 2rem;

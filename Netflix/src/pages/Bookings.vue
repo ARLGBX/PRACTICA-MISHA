@@ -29,6 +29,7 @@
         </div>
 
         <div v-else>
+          <div v-if="cancelError" class="error-banner">{{ cancelError }}</div>
           <div v-if="activeTab === 'active'">
             <div v-if="activeBookings.length === 0" class="empty">
               <p>🗓️ У вас нет активных бронирований</p>
@@ -107,9 +108,17 @@ const historyBookings = computed(() =>
   bookings.value.filter(b => b.status === 'completed' || b.status === 'cancelled')
 )
 
+const cancelError = ref('')
+
 async function cancelBooking(id) {
   if (!confirm('Отменить бронирование?')) return
-  await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' })
+  cancelError.value = ''
+  try {
+    await updateDoc(doc(db, 'bookings', id), { status: 'cancelled' })
+  } catch (err) {
+    cancelError.value = 'Ошибка при отмене бронирования. Попробуйте позже.'
+    console.error(err)
+  }
 }
 </script>
 
@@ -149,6 +158,15 @@ h1 { font-size: 1.8rem; margin-bottom: 2rem; color: #fff; }
 }
 
 .loading { text-align: center; padding: 3rem; color: #a5d6a7; }
+
+.error-banner {
+  background: #b71c1c;
+  color: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
 
 .empty {
   text-align: center;
