@@ -6,15 +6,15 @@
     <!-- HERO -->
     <section class="hero">
       <div class="hero-inner">
-        <div class="hero-badge">🌿 Добро пожаловать</div>
-        <h1 class="hero-title">Найдите своего<br><span class="hero-accent">идеального питомца</span></h1>
-        <p class="hero-sub">Запишитесь на визит или усыновление прямо сейчас. Тысячи животных ждут новый дом.</p>
+        <div class="hero-badge">🏠 Надёжный уход за вашим питомцем</div>
+        <h1 class="hero-title">Оставьте питомца<br><span class="hero-accent">в надёжных руках</span></h1>
+        <p class="hero-sub">Забронируйте место для вашего любимца прямо сейчас. Профессиональный уход и комфорт на время вашего отсутствия.</p>
         <div class="hero-search">
           <span class="search-icon">🔍</span>
           <input
             v-model="search"
             type="text"
-            placeholder="Поиск по имени, виду или породе..."
+            placeholder="Поиск по названию места, виду или категории..."
             class="hero-search-input"
           />
         </div>
@@ -54,14 +54,14 @@
 
       <!-- Results count -->
       <div v-if="!loading" class="results-meta">
-        <span class="results-count">{{ filtered.length }} питомцев</span>
+        <span class="results-count">{{ filtered.length }} мест для постоя</span>
         <span v-if="search || selectedCategory !== 'all'" class="results-hint">по вашим фильтрам</span>
       </div>
 
       <!-- Loading -->
       <div v-if="loading" class="loading-wrap">
         <div class="spinner"></div>
-        <p>Загрузка питомцев...</p>
+        <p>Загрузка мест...</p>
       </div>
 
       <!-- Empty -->
@@ -89,7 +89,7 @@
             />
             <div class="card-overlay"></div>
             <span :class="['avail-badge', animal.available ? 'yes' : 'no']">
-              <span class="avail-dot"></span>{{ animal.available ? 'Доступен' : 'Занят' }}
+              <span class="avail-dot"></span>{{ animal.available ? 'Свободно' : 'Занято' }}
             </span>
             <button
               class="fav-btn"
@@ -106,7 +106,7 @@
               <span class="chip">{{ animal.gender }}</span>
             </div>
             <div class="card-footer">
-              <span class="card-price">{{ animal.price ? animal.price.toLocaleString('ru-RU') + ' ₽' : 'Бесплатно' }}</span>
+              <span class="card-price">{{ animal.price ? animal.price.toLocaleString('ru-RU') + ' ₽/сут' : 'Уточняйте' }}</span>
               <span class="card-rating">
                 <span class="star">★</span>{{ animal.rating ? animal.rating.toFixed(1) : '—' }}
               </span>

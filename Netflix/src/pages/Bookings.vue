@@ -5,8 +5,8 @@
 
     <div class="page-top">
       <div class="page-top-inner">
-        <h1 class="page-title">📅 Мои бронирования</h1>
-        <p class="page-sub">Управляйте своими записями и отслеживайте их статус</p>
+        <h1 class="page-title">📅 Мои заявки на постой</h1>
+        <p class="page-sub">Управляйте заявками на размещение ваших питомцев и отслеживайте их статус</p>
       </div>
     </div>
 
@@ -15,7 +15,7 @@
       <div v-if="!currentUser && !authLoading" class="auth-gate">
         <div class="auth-gate-icon">🔐</div>
         <h2>Требуется авторизация</h2>
-        <p>Войдите, чтобы просматривать свои бронирования</p>
+        <p>Войдите, чтобы просматривать свои заявки на постой</p>
         <button class="btn-accent" @click="showAuth = true">Войти</button>
       </div>
 
@@ -62,9 +62,9 @@
         <div v-else-if="activeTab === 'active'">
           <div v-if="activeBookings.length === 0" class="empty-state">
             <div class="empty-emoji">🗓️</div>
-            <h3>Нет активных бронирований</h3>
-            <p>Найдите питомца и запишитесь на визит или усыновление</p>
-            <button class="btn-accent" @click="$router.push('/')">🐾 Найти питомца</button>
+            <h3>Нет активных заявок</h3>
+            <p>Найдите подходящее место и оставьте заявку на постой вашего питомца</p>
+            <button class="btn-accent" @click="$router.push('/')">🐾 Найти место</button>
           </div>
           <div v-else class="bookings-list">
             <BookingCard v-for="b in activeBookings" :key="b.id" :booking="b" @cancel="cancelBooking(b.id)" />

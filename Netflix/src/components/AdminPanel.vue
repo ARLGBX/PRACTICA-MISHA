@@ -13,20 +13,20 @@
     <!-- STATISTICS -->
     <div v-if="activeTab === 'stats'" class="tab-content">
       <div class="stats-grid">
-        <div class="stat-card"><div class="stat-num">{{ animals.length }}</div><div class="stat-lbl">Животных</div></div>
-        <div class="stat-card"><div class="stat-num">{{ bookings.length }}</div><div class="stat-lbl">Бронирований</div></div>
+        <div class="stat-card"><div class="stat-num">{{ animals.length }}</div><div class="stat-lbl">Мест</div></div>
+        <div class="stat-card"><div class="stat-num">{{ bookings.length }}</div><div class="stat-lbl">Заявок</div></div>
         <div class="stat-card"><div class="stat-num">{{ users.length }}</div><div class="stat-lbl">Пользователей</div></div>
         <div class="stat-card"><div class="stat-num">{{ reviews.length }}</div><div class="stat-lbl">Отзывов</div></div>
       </div>
-      <h2>Последние бронирования</h2>
+      <h2>Последние заявки</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Пользователь</th><th>Животное</th><th>Тип</th><th>Дата</th><th>Статус</th></tr></thead>
+          <thead><tr><th>Пользователь</th><th>Место</th><th>Тип</th><th>Дата</th><th>Статус</th></tr></thead>
           <tbody>
             <tr v-for="b in recentBookings" :key="b.id">
               <td>{{ b.userEmail }}</td>
               <td>{{ b.animalName }}</td>
-              <td>{{ b.type === 'adoption' ? 'Усыновление' : 'Визит' }}</td>
+              <td>{{ b.type === 'adoption' ? 'Долгосрочный' : 'Краткосрочный' }}</td>
               <td>{{ b.date }} {{ b.time }}</td>
               <td><span :class="['sbadge', b.status]">{{ statusLabel(b.status) }}</span></td>
             </tr>
@@ -39,24 +39,24 @@
     <!-- ANIMALS -->
     <div v-if="activeTab === 'animals'" class="tab-content">
       <div class="section-header">
-        <h2>Животные ({{ animals.length }})</h2>
+        <h2>Места для постоя ({{ animals.length }})</h2>
         <button class="btn-accent" @click="showAnimalForm = !showAnimalForm">
-          {{ showAnimalForm ? 'Скрыть форму' : '+ Добавить животное' }}
+          {{ showAnimalForm ? 'Скрыть форму' : '+ Добавить место' }}
         </button>
       </div>
 
       <div v-if="showAnimalForm" class="animal-form card">
-        <h3>{{ editingAnimal ? 'Редактировать животное' : 'Новое животное' }}</h3>
+        <h3>{{ editingAnimal ? 'Редактировать место' : 'Новое место' }}</h3>
         <div class="form-grid">
-          <div class="form-group"><label>Имя *</label><input v-model="animalForm.name" /></div>
-          <div class="form-group"><label>Вид *</label><input v-model="animalForm.species" /></div>
+          <div class="form-group"><label>Название *</label><input v-model="animalForm.name" /></div>
+          <div class="form-group"><label>Вид животных *</label><input v-model="animalForm.species" /></div>
           <div class="form-group"><label>Порода</label><input v-model="animalForm.breed" /></div>
-          <div class="form-group"><label>Возраст (лет) *</label><input v-model.number="animalForm.age" type="number" min="0" step="0.1" /></div>
+          <div class="form-group"><label>Вместимость (кг/размер)</label><input v-model.number="animalForm.age" type="number" min="0" step="0.1" /></div>
           <div class="form-group">
-            <label>Пол *</label>
+            <label>Тип вольера</label>
             <select v-model="animalForm.gender">
-              <option value="Самец">Самец</option>
-              <option value="Самка">Самка</option>
+              <option value="Самец">Стандарт</option>
+              <option value="Самка">Люкс</option>
             </select>
           </div>
           <div class="form-group">
@@ -65,11 +65,11 @@
               <option v-for="c in animalCategories" :key="c" :value="c">{{ c }}</option>
             </select>
           </div>
-          <div class="form-group"><label>Цена (₽)</label><input v-model.number="animalForm.price" type="number" min="0" /></div>
+          <div class="form-group"><label>Цена в сутки (₽)</label><input v-model.number="animalForm.price" type="number" min="0" /></div>
           <div class="form-group"><label>URL изображения</label><input v-model="animalForm.imageUrl" /></div>
           <div class="form-group full"><label>Описание</label><textarea v-model="animalForm.description" rows="3"></textarea></div>
           <div class="form-group checkbox-group">
-            <label><input type="checkbox" v-model="animalForm.available" /> Доступен</label>
+            <label><input type="checkbox" v-model="animalForm.available" /> Свободно</label>
           </div>
         </div>
         <div v-if="animalFormError" class="error-msg">{{ animalFormError }}</div>
@@ -83,20 +83,20 @@
 
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Имя</th><th>Вид</th><th>Категория</th><th>Цена</th><th>Статус</th><th>Действия</th></tr></thead>
+          <thead><tr><th>Название</th><th>Вид животных</th><th>Категория</th><th>Цена/сут</th><th>Статус</th><th>Действия</th></tr></thead>
           <tbody>
             <tr v-for="a in animals" :key="a.id">
               <td>{{ a.name }}</td>
               <td>{{ a.species }}</td>
               <td>{{ a.category }}</td>
-              <td>{{ a.price ? a.price.toLocaleString('ru-RU') + ' ₽' : '—' }}</td>
-              <td><span :class="['sbadge', a.available ? 'confirmed' : 'cancelled']">{{ a.available ? 'Доступен' : 'Занят' }}</span></td>
+              <td>{{ a.price ? a.price.toLocaleString('ru-RU') + ' ₽/сут' : '—' }}</td>
+              <td><span :class="['sbadge', a.available ? 'confirmed' : 'cancelled']">{{ a.available ? 'Свободно' : 'Занято' }}</span></td>
               <td class="actions">
                 <button class="btn-sm" @click="editAnimal(a)">✏️</button>
                 <button class="btn-sm danger" @click="deleteAnimal(a.id)">🗑️</button>
               </td>
             </tr>
-            <tr v-if="!animals.length"><td colspan="6" class="empty-row">Нет животных</td></tr>
+            <tr v-if="!animals.length"><td colspan="6" class="empty-row">Нет мест</td></tr>
           </tbody>
         </table>
       </div>
@@ -116,12 +116,12 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Пользователь</th><th>Животное</th><th>Тип</th><th>Дата/Время</th><th>Статус</th><th>Изменить статус</th></tr></thead>
+          <thead><tr><th>Пользователь</th><th>Место</th><th>Тип</th><th>Дата/Время</th><th>Статус</th><th>Изменить статус</th></tr></thead>
           <tbody>
             <tr v-for="b in filteredBookings" :key="b.id">
               <td>{{ b.userEmail }}</td>
               <td>{{ b.animalName }}</td>
-              <td>{{ b.type === 'adoption' ? 'Усыновление' : 'Визит' }}</td>
+              <td>{{ b.type === 'adoption' ? 'Долгосрочный' : 'Краткосрочный' }}</td>
               <td>{{ b.date }} {{ b.time }}</td>
               <td><span :class="['sbadge', b.status]">{{ statusLabel(b.status) }}</span></td>
               <td>
@@ -167,7 +167,7 @@
       <h2>Отзывы ({{ reviews.length }})</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Пользователь</th><th>Животное</th><th>Рейтинг</th><th>Отзыв</th><th>Действия</th></tr></thead>
+          <thead><tr><th>Пользователь</th><th>Место</th><th>Рейтинг</th><th>Отзыв</th><th>Действия</th></tr></thead>
           <tbody>
             <tr v-for="r in reviews" :key="r.id">
               <td>{{ r.userEmail }}</td>
@@ -196,8 +196,8 @@ import { db } from '../firebase/config'
 
 const adminTabs = [
   { value: 'stats', label: '📊 Статистика' },
-  { value: 'animals', label: '🐾 Животные' },
-  { value: 'bookings', label: '📅 Бронирования' },
+  { value: 'animals', label: '🏠 Места для постоя' },
+  { value: 'bookings', label: '📅 Заявки' },
   { value: 'users', label: '👥 Пользователи' },
   { value: 'moderation', label: '📝 Модерация' },
 ]

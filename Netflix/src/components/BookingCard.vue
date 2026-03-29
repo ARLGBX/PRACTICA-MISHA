@@ -48,7 +48,7 @@ const statusLabel = computed(() => {
   return map[props.booking.status] || props.booking.status
 })
 
-const typeLabel = computed(() => props.booking.type === 'adoption' ? '🏠 Усыновление' : '👁 Визит')
+const typeLabel = computed(() => props.booking.type === 'adoption' ? '📦 Долгосрочный постой' : '⏰ Краткосрочный постой')
 
 function formatDate(ts) {
   if (!ts) return ''
