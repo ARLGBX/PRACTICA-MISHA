@@ -10,8 +10,8 @@
 
     <div v-else-if="!animal" class="not-found">
       <div class="not-found-emoji">🐾</div>
-      <h2>Животное не найдено</h2>
-      <p>Возможно, оно уже нашло свой дом</p>
+      <h2>Место не найдено</h2>
+      <p>Возможно, оно уже занято или было удалено</p>
       <button class="btn-back" @click="$router.push('/')">На главную</button>
     </div>
 
@@ -33,7 +33,7 @@
             <div class="img-overlay"></div>
             <span :class="['avail-badge-lg', animal.available ? 'yes' : 'no']">
               <span class="avail-dot-lg"></span>
-              {{ animal.available ? 'Доступен' : 'Недоступен' }}
+              {{ animal.available ? 'Свободно' : 'Занято' }}
             </span>
           </div>
 
@@ -56,25 +56,25 @@
             <p v-if="animal.description" class="info-desc">{{ animal.description }}</p>
 
             <div class="price-block">
-              <span class="price-label">Стоимость</span>
-              <span class="price-val">{{ animal.price ? animal.price.toLocaleString('ru-RU') + ' ₽' : 'Бесплатно' }}</span>
+              <span class="price-label">Стоимость в сутки</span>
+              <span class="price-val">{{ animal.price ? animal.price.toLocaleString('ru-RU') + ' ₽/сут' : 'Уточняйте' }}</span>
             </div>
 
             <!-- Booking widget -->
             <div class="booking-widget">
               <div class="widget-head">
-                <h2>📅 Забронировать</h2>
+                <h2>📅 Оставить питомца</h2>
               </div>
 
               <div v-if="!currentUser" class="widget-auth">
-                <p>Войдите, чтобы записаться</p>
+                <p>Войдите, чтобы оставить заявку</p>
                 <button class="btn-accent" @click="showAuth = true">Войти</button>
               </div>
 
               <form v-else-if="animal.available" @submit.prevent="submitBooking" class="booking-form">
                 <Transition name="alert">
                   <div v-if="bookingSuccess" class="alert success-alert">
-                    ✓ Бронирование создано! Ожидайте подтверждения.
+                    ✓ Заявка принята! Ожидайте подтверждения.
                   </div>
                 </Transition>
                 <Transition name="alert">
@@ -83,18 +83,18 @@
 
                 <div class="form-row3">
                   <div class="fg">
-                    <label>Тип</label>
+                    <label>Тип постоя</label>
                     <select v-model="bookingType" required>
-                      <option value="visit">👁 Визит</option>
-                      <option value="adoption">🏠 Усыновление</option>
+                      <option value="visit">⏰ Краткосрочный (до 7 дней)</option>
+                      <option value="adoption">📦 Долгосрочный (от 7 дней)</option>
                     </select>
                   </div>
                   <div class="fg">
-                    <label>Дата</label>
+                    <label>Дата заезда</label>
                     <input type="date" v-model="bookingDate" :min="today" required />
                   </div>
                   <div class="fg">
-                    <label>Время</label>
+                    <label>Время заезда</label>
                     <select v-model="bookingTime" required>
                       <option v-for="t in timeSlots" :key="t" :value="t">{{ t }}</option>
                     </select>
@@ -102,13 +102,13 @@
                 </div>
                 <button type="submit" class="btn-accent wide" :disabled="bookingLoading">
                   <span v-if="bookingLoading" class="spinner-sm"></span>
-                  <span v-else>🐾 Забронировать</span>
+                  <span v-else>🐾 Оставить питомца</span>
                 </button>
               </form>
 
               <div v-else class="widget-unavailable">
                 <span class="unavail-emoji">😔</span>
-                <p>Сейчас недоступно для бронирования</p>
+                <p>Все места для постоя заняты</p>
               </div>
             </div>
           </div>
@@ -181,7 +181,7 @@
         <!-- Similar animals -->
         <section v-if="similarAnimals.length" class="section">
           <div class="section-head">
-            <h2>Похожие животные</h2>
+            <h2>Похожие места</h2>
           </div>
           <div class="similar-grid">
             <div
@@ -200,7 +200,7 @@
               <div class="similar-info">
                 <strong>{{ a.name }}</strong>
                 <span>{{ a.species }}</span>
-                <span class="similar-price">{{ a.price ? a.price.toLocaleString('ru-RU') + ' ₽' : 'Бесплатно' }}</span>
+                <span class="similar-price">{{ a.price ? a.price.toLocaleString('ru-RU') + ' ₽/сут' : 'Уточняйте' }}</span>
               </div>
             </div>
           </div>

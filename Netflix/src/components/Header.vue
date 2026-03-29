@@ -8,7 +8,7 @@
 
       <nav class="nav">
         <router-link to="/" class="nav-link">Главная</router-link>
-        <router-link to="/bookings" class="nav-link">Бронирования</router-link>
+        <router-link to="/bookings" class="nav-link">Мои заявки</router-link>
         <router-link to="/profile" class="nav-link">Кабинет</router-link>
         <router-link v-if="isAdmin" to="/admin" class="nav-link nav-admin">
           <span class="admin-dot"></span>Админ
@@ -37,7 +37,7 @@
                   <span>👤</span> Профиль
                 </router-link>
                 <router-link to="/bookings" class="dropdown-item" @click="menuOpen = false">
-                  <span>📅</span> Мои бронирования
+                  <span>📅</span> Мои заявки
                 </router-link>
                 <router-link v-if="isAdmin" to="/admin" class="dropdown-item" @click="menuOpen = false">
                   <span>⚙️</span> Админ панель
@@ -65,7 +65,7 @@
     <Transition name="mobile">
       <nav v-if="mobileOpen" class="mobile-nav">
         <router-link to="/" class="mob-link" @click="mobileOpen = false">🏠 Главная</router-link>
-        <router-link to="/bookings" class="mob-link" @click="mobileOpen = false">📅 Бронирования</router-link>
+        <router-link to="/bookings" class="mob-link" @click="mobileOpen = false">📅 Мои заявки</router-link>
         <router-link to="/profile" class="mob-link" @click="mobileOpen = false">👤 Кабинет</router-link>
         <router-link v-if="isAdmin" to="/admin" class="mob-link admin" @click="mobileOpen = false">⚙️ Админ</router-link>
         <div class="mob-divider"></div>
