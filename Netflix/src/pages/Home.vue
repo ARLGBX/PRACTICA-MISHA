@@ -96,6 +96,11 @@
               @click.stop="toggleFavorite(animal.id)"
               :title="isFavorite(animal.id) ? 'Убрать из избранного' : 'В избранное'"
             >{{ isFavorite(animal.id) ? '❤️' : '🤍' }}</button>
+            <button
+              class="watch-later-btn"
+              @click.stop="toggleWatchLater(animal.id)"
+              :title="isWatchLater(animal.id) ? 'Убрать из «Смотреть позже»' : 'Смотреть позже'"
+            >{{ isWatchLater(animal.id) ? '🕐' : '⏱️' }}</button>
           </div>
           <div class="card-body">
             <div class="card-category">{{ animal.category }}</div>
@@ -146,6 +151,7 @@ const sortBy = ref('name')
 const currentPage = ref(1)
 const pageSize = 12
 const favorites = ref(JSON.parse(localStorage.getItem('zoo_favorites') || '[]'))
+const watchLater = ref(JSON.parse(localStorage.getItem('zoo_watchLater') || '[]'))
 
 const categories = [
   { value: 'all', label: 'Все', emoji: '🐾' },
@@ -217,6 +223,15 @@ function toggleFavorite(id) {
     favorites.value.push(id)
   }
   localStorage.setItem('zoo_favorites', JSON.stringify(favorites.value))
+}
+function isWatchLater(id) { return watchLater.value.includes(id) }
+function toggleWatchLater(id) {
+  if (isWatchLater(id)) {
+    watchLater.value = watchLater.value.filter(w => w !== id)
+  } else {
+    watchLater.value.push(id)
+  }
+  localStorage.setItem('zoo_watchLater', JSON.stringify(watchLater.value))
 }
 </script>
 
@@ -511,6 +526,21 @@ function toggleFavorite(id) {
   transition: all 0.2s;
 }
 .fav-btn:hover { background: rgba(7,18,10,0.85); transform: scale(1.1); }
+
+.watch-later-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 2.8rem;
+  background: rgba(7,18,10,0.65);
+  backdrop-filter: blur(6px);
+  border-radius: 50%;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: all 0.2s;
+}
+.watch-later-btn:hover { background: rgba(7,18,10,0.85); transform: scale(1.1); }
 
 .card-body { padding: 1.1rem; }
 .card-category {
