@@ -186,10 +186,13 @@ async function saveProfile() {
 
 function subscribeReviews() {
   if (!props.currentUser) return
+  reviewsLoading.value = true
   const q = query(collection(db, 'reviews'), where('userId', '==', props.currentUser.uid))
   unsubReviews = onSnapshot(q, snap => {
     userReviews.value = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0))
+    reviewsLoading.value = false
+  }, () => {
     reviewsLoading.value = false
   })
 }
